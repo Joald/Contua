@@ -121,4 +121,5 @@ Since the language will be pretty complicated in the 'backend', I tried to keep 
 }
 \end{align*}
 \section{Forcing continuation style}
+The current plan on forcing the continuation style on the programmer is to add an implicit modification on the type of all functions that are defined in the language. For example, if a function is annotated with type \texttt{a -> b -> c}, then the actual type of the function is \texttt{a -> b -> (c -> d) -> d}, and the result type \texttt{d} is always generic.
 \end{document}

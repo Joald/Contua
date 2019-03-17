@@ -1,12 +1,12 @@
-import Control.Exception
-import Test.Hspec
-import Test.Hspec.Megaparsec
+import           Control.Exception
+import           Test.Hspec
+import           Test.Hspec.Megaparsec
 
-import Parser.Utils
-import Parser.TypeDefs
-import Parser.Parser
-import Control.Monad
-import Text.Megaparsec (runParser, parse)
+import           Control.Monad
+import           Parser.Parser
+import           Parser.TypeDefs
+import           Parser.Utils
+import           Text.Megaparsec       (parse, runParser)
 
 
 main :: IO ()
@@ -30,8 +30,9 @@ main =
         parse program "" "type :: a=0039679887+a0000000kkkk;" `shouldParse` AST [] [FunDecl TInt "a" [] (EAdd (EInt 39679887) (EVar "a0000000kkkk"))]
         parse program "" "type :: a=0+0+3+9+67+a+0+k+k+k+k;" `shouldParse` AST [] [FunDecl TInt "a" [] (EAdd (EAdd (EAdd (EAdd (EAdd (EAdd (EAdd (EAdd (EAdd (EAdd (EInt 0) (EInt 0)) (EInt 3)) (EInt 9)) (EInt 67)) (EVar "a")) (EInt 0)) (EVar "k")) (EVar "k")) (EVar "k")) (EVar "k")) ]
         parse program "" "type :: a=2137+(-a0000000kkkk);" `shouldParse` AST [] [FunDecl TInt "a" [] (EAdd (EInt 2137) (ENeg(EVar "a0000000kkkk")))]
-      it "parses subtraction" $
+      it "parses subtraction" $ do
         parse program "" "type :: a=3-a;" `shouldParse` AST [] [FunDecl TInt "a" [] (ESub (EInt 3) (EVar "a"))]
+        parse program "" "type :: a=3-a - 2137;" `shouldParse` AST [] [FunDecl TInt "a" [] (ESub (ESub (EInt 3) (EVar "a")) (EInt 2137))]
       it "parses multiplication" $
         parse program "" "type :: a=3*a;" `shouldParse` AST [] [FunDecl TInt "a" [] (EMul (EInt 3) (EVar "a"))]
       it "parses complex arithmetic expressions" $
@@ -43,11 +44,31 @@ main =
         parse program "" "type::a=3 1;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (EInt 3) (EInt 1)]
         parse program "" "type::a=1234 1;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (EInt 1234) (EInt 1)]
         parse program "" "type::a=a a12341;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (EVar "a") (EVar "a12341")]
-      it "parser complex application" $ do
+      it "parses complex application" $ do
         parse program "" "type::a= f g h;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (EApply (EVar "f") (EVar "g")) (EVar "h")]
         parse program "" "type::a= a b c d e f g h;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (EApply (EApply (EApply (EApply (EApply (EApply (EVar "a") (EVar "b")) (EVar "c")) (EVar "d")) (EVar "e")) (EVar "f")) (EVar "g")) (EVar "h")]
         parse program "" "type::a= f (2137 + g) h;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (EApply (EVar "f") (EAdd (EInt 2137) (EVar "g"))) (EVar "h")]
-
+        parse program "" "type :: functionName   a b c d e f =   functionName 1 (functionName 2) (cuś) (functionName 4);" `shouldParse` AST [] [FunDecl TInt "functionName" (map EVar ["a", "b", "c", "d", "e", "f"]) $
+          EApply (EApply (EApply (EApply (EVar "functionName") (EInt 1)) (EApply (EVar "functionName") (EInt 2))) (EVar "cuś")) (EApply (EVar "functionName") (EInt 4))]
+      it "parses lambdas" $ do
+        parse program "" "type::a=fn x . x + 2;" `shouldParse` AST [] [FunDecl TInt "a" [] $ ELambda [EVar "x"] $ EAdd (EVar "x") (EInt 2)]
+        parse program "" "type::a=(fn x . x + 2) 2;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (ELambda [EVar "x"] $ EAdd (EVar "x") (EInt 2)) (EInt 2)]
+        parse program "" "type::a=map (fn x . x + 2) list;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (EApply (EVar "map") (ELambda [EVar "x"] $ EAdd (EVar "x") (EInt 2))) (EVar "list")]
+    describe "list parser" $ do
+      it "parses list literals" $ do
+        parse program "" "type::a=[1, 2, 3, 4];" `shouldParse` AST [] [FunDecl TInt "a" [] $ EListLiteral $ map EInt [1..4]]
+        parse program "" "type::a=[a, b, c, d];" `shouldParse` AST [] [FunDecl TInt "a" [] $ EListLiteral $ map EVar ["a", "b", "c", "d"]]
+        parse program "" "type::a=[[], [], [], []];" `shouldParse` AST [] [FunDecl TInt "a" [] $ EListLiteral $ map EListLiteral [[], [], [], []]]
+        parse program "" "type::a=[[1, 2, 3], [[[]]], [[1], [2], [3]], []];" `shouldParse` AST [] [FunDecl TInt "a" [] $ EListLiteral $ map EListLiteral [map EInt [1, 2, 3], [EListLiteral [EListLiteral []]], map (EListLiteral . (:[]) . EInt) [1, 2, 3], []]]
+      it "parses cons expressions" $ do
+        parse program "" "type::a=x:xs;`" `shouldParse` AST [] [FunDecl TInt "a" [] $ ECons (EVar "x") (EVar "xs")]
+        parse program "" "type::a b=x + b : xs;" `shouldParse` AST [] [FunDecl TInt "a" [EVar "b"] $ ECons (EAdd (EVar "x") (EVar "b")) (EVar "xs")]
+        parse program "" "type::a b=x * y : concat xs;" `shouldParse` AST [] [FunDecl TInt "a" [EVar "b"] $ ECons (EMul (EVar "x") (EVar "y")) (EApply (EVar "concat") $ EVar "xs")]
+      it "parses list concatenation" $ do
+        parse program "" "type :: a = xs ++ ys;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EConcat (EVar "xs") (EVar "ys")]
+        parse program "" "type :: a = x : xs ++ ys;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EConcat (ECons (EVar "x") (EVar "xs")) (EVar "ys")]
+        parse program "" "type :: a = xs ++ ys ++ zs;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EConcat (EConcat (EVar "xs") (EVar "ys")) (EVar "zs")]
+        parse program "" "type :: a = x : xs ++ y : ys ++ z : zs;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EConcat (EConcat (ECons (EVar "x") (EVar "xs")) (ECons (EVar "y") (EVar "ys"))) (ECons (EVar "z") (EVar "zs"))]
 
 {-
 
