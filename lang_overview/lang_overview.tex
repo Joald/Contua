@@ -1,0 +1,124 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsfonts}
+\usepackage{soul}
+\usepackage{textcomp}
+\usepackage{color}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{listings}
+\usepackage{amsthm} 
+\usepackage[dvipsnames]{xcolor}
+\usepackage[a4paper, total={6.5in, 10in}]{geometry}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\lstset{frame=tb,
+    language=Haskell,
+    aboveskip=3mm,
+    belowskip=3mm,
+    showstringspaces=false,
+    columns=flexible,
+    basicstyle={\small\ttfamily},
+    numbers=none,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{dkgreen},
+    stringstyle=\color{mauve},
+    breaklines=true,
+    breakatwhitespace=true,
+    escapeinside={(*}{*)},          % if you want to add LaTeX within your code
+    tabsize=4
+}
+
+\title{Overview of the Contua programming language.}
+\author{Jacek Olczyk}
+\date{Feb 2019}
+
+\begin{document}
+\maketitle
+\section{Introduction}
+\paragraph{Contua} is a strongly typed functional programming language. It is conceived on a basis of the idea that the language should force the programmer to write all the functions continuation-style. It is not immediately clear what measures needs to be taken to disallow regular functions. I needed to come up with some conventions to achieve that result.
+\section{The syntax}
+Since the language will be pretty complicated in the 'backend', I tried to keep the syntax as simple as possible. In this grammar I omitted the whitespace rules.
+\begin{align*}
+% program
+\texttt{program}  =\ & \texttt{\{ \color{gray}typeDecl \color{black} \}, \{ \color{red}funDecl \color{black} \}}\\
+% funDecl
+\texttt{\color{red}funDecl\color{black}} =\ & \texttt{\color{ForestGreen}type\color{black}, '::', id, \{ id \}, "=", \color{RoyalPurple}expr\color{black}}\\
+% typeDecl
+\texttt{\color{gray}typeDecl\color{black}} =\ &\texttt{\color{blue}'type'\color{black}, ID, \{ id \}, "=", \color{RubineRed}typeCtor\color{black}, \{ "|", \color{RubineRed}typeCtor \color{black} \}}\\
+% type
+\texttt{\color{ForestGreen}type\color{black}} =\ &\texttt{\color{CadetBlue}basicType \color{black} | (\color{ForestGreen}type\color{black}, \{ '->', \color{ForestGreen}type \color{black} \}) | "(", \color{ForestGreen}type\color{black}, ")"}\\
+% basicType
+\texttt{\color{CadetBlue}basicType} =\ &	\texttt{\color{RubineRed}typeCtor \color{black}| id | "[", id, "]"}\\
+% typeCtor
+\texttt{\color{RubineRed}typeCtor\color{black}} =\ & \texttt{ID, \{ \color{ForestGreen}type \color{black} \}}\\
+% function
+% \texttt{\color{brown}function\color{black}} =\ & \texttt{}\\
+% expr
+\texttt{\color{RoyalPurple}expr\color{black}} =\ &  \texttt{
+	% variables
+	id
+	% type ctors
+	| ID
+	% +
+	| \color{RoyalPurple}expr\color{black}, "+", \color{RoyalPurple}expr \color{black} 
+	% -
+	| \color{RoyalPurple}expr\color{black}, "-", \color{RoyalPurple}expr \color{black} 
+	% *
+	| \color{RoyalPurple}expr\color{black}, "*", \color{RoyalPurple}expr \color{black}
+	% - unary
+	| "-", \color{RoyalPurple}expr \color{black}
+|}\\
+&\texttt{
+	% ()
+	| "(", \color{RoyalPurple}expr\color{black}, ")" 
+	% application
+	| \color{RoyalPurple}expr\color{black}, \color{RoyalPurple}expr \color{black} 
+	% lambda
+	| \color{blue}'fn'\color{black}, \{ id \}, ".", \color{RoyalPurple}expr \color{black} 
+	% listExpr
+	| \color{RawSienna}listExpr \color{black} 
+|}\\
+&\texttt{
+	% where
+	| \color{RoyalPurple}expr\color{black}, \color{blue}'where'\color{black}, \color{red} funDecl\color{black}, \{ \color{blue}'and'\color{black}, \color{red}funDecl \color{black} \} 
+	% let in
+	| \color{blue}'let'\color{black}, \color{red}funDecl\color{black}, \color{blue}'in'\color{black}, \color{RoyalPurple}expr \color{black} 
+|}\\
+&\texttt{
+	% match
+	| \color{blue}'match'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'with'\color{black}, \{ "|", \color{RoyalPurple}expr\color{black}, '=>', \color{RoyalPurple}expr \color{black} \}
+|}\\
+&\texttt{
+	% if then else
+	| \color{blue}'if'\color{black}, \color{Goldenrod}bexpr\color{black}, \color{blue}'then'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'else'\color{black}, \color{RoyalPurple}expr\color{black}
+}\\
+% bexpr
+\texttt{\color{Goldenrod}bexpr\color{black}} =\ &\texttt{
+	% boolean variable
+	id
+	% conjunction
+	| \color{Goldenrod}bexpr\color{black}, \color{blue}'and'\color{black}, \color{Goldenrod}bexpr \color{black}
+	% disjunction
+	| \color{Goldenrod}bexpr\color{black}, \color{blue} 'or'\color{black}, \color{Goldenrod}bexpr \color{black}
+	% negation
+	| \color{blue} 'or'\color{black}, \color{Goldenrod}bexpr \color{black} 
+	% less
+	| \color{RoyalPurple}expr\color{black}, '<=', \color{RoyalPurple}expr\color{black}
+}\\
+% listExpr
+\texttt{\color{RawSienna}listExpr\color{black}} =\ &\texttt{
+	% list literal
+	[\color{RoyalPurple}expr\color{black}, \{",", \color{RoyalPurple}expr \color{black}\}]
+	% head/tail
+	| \color{RoyalPurple} expr\color{black}, ":", \color{RawSienna}listExpr \color{black}
+	% concatenation
+	| \color{RawSienna}listExpr\color{black}, "++", \color{RawSienna}listExpr \color{black}
+}
+\end{align*}
+\section{Forcing continuation style}
+\end{document}

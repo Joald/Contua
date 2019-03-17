@@ -1,0 +1,54 @@
+name:                Contua
+version:             0.1.0.0
+github:              "Joald/Contua"
+license:             BSD3
+author:              "Jacek Olczyk"
+maintainer:          "jacek.olczyk98@gmail.com"
+copyright:           "2019 Jacek Olczyk"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/Joald/Contua#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- megaparsec >= 7
+- mtl
+- text
+- parser-combinators
+- hspec >= 2.6.1
+- hspec-megaparsec
+
+library:
+  source-dirs: src
+
+executables:
+  Contua-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - Contua
+
+tests:
+  Contua-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - Contua
