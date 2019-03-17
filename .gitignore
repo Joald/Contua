@@ -2,3 +2,6 @@
 Contua.cabal
 *~
 .idea
+*.aux
+*.log
+*.gz
