@@ -25,28 +25,10 @@ funDecl = do
 
 lambda :: Parser Expr
 lambda = do
-  void (symbol "fn")
+  void (keyword "fn")
   ids <- many identifier
   void (symbol ".")
   ELambda (map EVar ids) <$> expr
-
-matchExpr :: Parser Expr
-matchExpr = do
-  void (symbol "match")
-  em <- expr
-  void (symbol "in")
-  pats <- many $ do
-    void (symbol "|")
-    expr
-  return $ EMatch em pats
-
-whereExpr :: Parser Expr
-whereExpr = do
-  ep <- expr
-  void (symbol "where")
-  fs <- many funDecl
-  return $ EWhere ep (fromList fs)
-
 
 emptyList :: Parser Expr
 emptyList = do
@@ -60,16 +42,6 @@ listLiteral = do
   rest <- many (symbol "," >> expr)
   void (symbol "]")
   return . EListLiteral $ e : rest
-
-
-letExpr :: Parser Expr
-letExpr = do
-  void (symbol "let")
-  var <- identifier
-  void (symbol "=")
-  e1 <- expr
-  void (symbol "in")
-  ELet var e1 <$> expr
 
 
 exprTerm :: Parser Expr
@@ -112,3 +84,33 @@ exprOperatorTable =
 
 expr :: Parser Expr
 expr = makeExprParser exprTerm exprOperatorTable
+
+
+-- not added yet:
+
+
+matchExpr :: Parser Expr
+matchExpr = do
+  void (symbol "match")
+  em <- expr
+  void (symbol "in")
+  pats <- many $ do
+    void (symbol "|")
+    expr
+  return $ EMatch em pats
+
+whereExpr :: Parser Expr
+whereExpr = do
+  ep <- expr
+  void (symbol "where")
+  fs <- many funDecl
+  return $ EWhere ep (fromList fs)
+
+letExpr :: Parser Expr
+letExpr = do
+  void (symbol "let")
+  var <- identifier
+  void (symbol "=")
+  e1 <- expr
+  void (symbol "in")
+  ELet var e1 <$> expr

@@ -54,6 +54,8 @@ main =
         parse program "" "type::a=fn x . x + 2;" `shouldParse` AST [] [FunDecl TInt "a" [] $ ELambda [EVar "x"] $ EAdd (EVar "x") (EInt 2)]
         parse program "" "type::a=(fn x . x + 2) 2;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (ELambda [EVar "x"] $ EAdd (EVar "x") (EInt 2)) (EInt 2)]
         parse program "" "type::a=map (fn x . x + 2) list;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EApply (EApply (EVar "map") (ELambda [EVar "x"] $ EAdd (EVar "x") (EInt 2))) (EVar "list")]
+        parse program "" "type :: a = fnnnn;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EVar "fnnnn"]
+        parse program "" "type :: a = kafafafn;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EVar "kafafafn"]
     describe "list parser" $ do
       it "parses list literals" $ do
         parse program "" "type::a=[1, 2, 3, 4];" `shouldParse` AST [] [FunDecl TInt "a" [] $ EListLiteral $ map EInt [1..4]]
