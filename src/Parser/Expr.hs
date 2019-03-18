@@ -43,12 +43,15 @@ listLiteral = do
   void (symbol "]")
   return . EListLiteral $ e : rest
 
+ifExpr :: Parser Expr
+ifExpr = EIf <$ keyword "if" <*> expr <* keyword "then" <*> expr <* keyword "else" <*> expr
 
 exprTerm :: Parser Expr
 exprTerm = choice
   [ try (parens expr)
   , try (EInt <$> lexeme L.decimal)
   , lambda
+  , ifExpr
   , try emptyList <|> listLiteral
   , try (EVar <$> identifier) -- needs to be last to not parse keywords as ids
 --  , matchExpr

@@ -39,4 +39,16 @@ data Expr =
   | ELeq  Expr Expr
   deriving (Show, Eq)
 
+(^&&^) = EAnd
+(^||^) = EOr
+(^+^) = EAdd
+(^-^) = ESub
+(^*^) = EMul
+(^$^) = EApply
+(-^) = ENeg
+(~^) = ENot
+(^++^) = EConcat
+(^:^) = ECons
+(^==^) = EEq
+(^<=^) = ELeq
 
