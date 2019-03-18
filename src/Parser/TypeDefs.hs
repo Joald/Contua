@@ -29,10 +29,14 @@ data Expr =
   | ECons Expr Expr
   | EConcat Expr Expr
   | EWhere Expr (NonEmpty FunDecl)
-  | EIf BExpr Expr Expr
+  | EIf Expr Expr Expr
   | EMatch Expr [Expr]
   | ELet Name Expr Expr
+  | EAnd Expr Expr
+  | EOr Expr Expr
+  | ENot Expr
+  | EEq  Expr Expr
+  | ELeq  Expr Expr
   deriving (Show, Eq)
 
-data BExpr = BVal Name | BAnd BExpr BExpr | BOr BExpr BExpr | BNot BExpr | BLeq  Expr Expr deriving (Show, Eq)
 

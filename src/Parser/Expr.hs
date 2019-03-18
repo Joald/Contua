@@ -72,20 +72,6 @@ letExpr = do
   ELet var e1 <$> expr
 
 
-
-
-application :: Parser Expr
-application = do
-  e1 <- expr
-  es <- some expr
-  return $ applicationHelper e1 es
-    where
-      applicationHelper e es
-        | [] <- es = e
-        | x : xs <- es = applicationHelper (EApply e x) xs
-
-
-
 exprTerm :: Parser Expr
 exprTerm = choice
   [ try (parens expr)
@@ -100,26 +86,28 @@ exprTerm = choice
 
 binary :: String -> (Expr -> Expr -> Expr) -> Operator Parser Expr
 binary  name f =  InfixL  (f <$ symbol name)
+binaryTry :: String -> (Expr -> Expr -> Expr) -> Operator Parser Expr
+binaryTry name f =  InfixL  (f <$ try (symbol name))
 
 prefix, postfix :: String -> (Expr -> Expr) -> Operator Parser Expr
 prefix  name f = Prefix  (f <$ symbol name)
 postfix name f = Postfix (f <$ symbol name)
 
-op :: String -> Parser String
-op n = lexeme $ try $ string n <* notFollowedBy opChar
-
-opChar :: Parser Char
-opChar = oneOf "-*+:"
 
 exprOperatorTable :: [[Operator Parser Expr]]
 exprOperatorTable =
-  [ [ binary "" EApply]
+  [ [ binaryTry "" EApply ]
   , [ prefix "-" ENeg ]
+  , [ Prefix $ ENot <$ keyword "not" ]
   , [ binary "*" EMul ]
-  , [ InfixL (EAdd <$ op "+")
+  , [ InfixL $ EAdd <$ op "+"
     , binary "-" ESub ]
-  , [ binary ":" ECons]
-  , [ InfixL $ EConcat <$ op "++"]
+  , [ binary ":" ECons ]
+  , [ InfixL $ EConcat <$ op "++" ]
+  , [ binary "==" EEq ]
+  , [ binary "<=" ELeq ]
+  , [ InfixL $ EAnd <$ keyword "and" ]
+  , [ InfixL $ EOr <$ keyword "or" ]
   ]
 
 expr :: Parser Expr

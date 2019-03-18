@@ -80,8 +80,6 @@ Since the language will be pretty complicated in the 'backend', I tried to keep 
 	| \color{RoyalPurple}expr\color{black}, \color{RoyalPurple}expr \color{black} 
 	% lambda
 	| \color{blue}'fn'\color{black}, \{ id \}, ".", \color{RoyalPurple}expr \color{black} 
-	% listExpr
-	| \color{RawSienna}listExpr \color{black} 
 |}\\
 &\texttt{
 	% where
@@ -95,29 +93,28 @@ Since the language will be pretty complicated in the 'backend', I tried to keep 
 |}\\
 &\texttt{
 	% if then else
-	| \color{blue}'if'\color{black}, \color{Goldenrod}bexpr\color{black}, \color{blue}'then'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'else'\color{black}, \color{RoyalPurple}expr\color{black}
-}\\
-% bexpr
-\texttt{\color{Goldenrod}bexpr\color{black}} =\ &\texttt{
-	% boolean variable
-	id
+	| \color{blue}'if'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'then'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'else'\color{black}, \color{RoyalPurple}expr\color{black}
+	% equality
+	| \color{RoyalPurple}expr\color{black}, '==',
+	\color{RoyalPurple}expr \color{black}
+|}\\
+&\texttt{
 	% conjunction
-	| \color{Goldenrod}bexpr\color{black}, \color{blue}'and'\color{black}, \color{Goldenrod}bexpr \color{black}
+	| \color{RoyalPurple}expr\color{black}, \color{blue}'and'\color{black}, \color{RoyalPurple}expr \color{black}
 	% disjunction
-	| \color{Goldenrod}bexpr\color{black}, \color{blue} 'or'\color{black}, \color{Goldenrod}bexpr \color{black}
+	| \color{RoyalPurple}expr\color{black}, \color{blue} 'or'\color{black}, \color{RoyalPurple}expr \color{black}
 	% negation
-	| \color{blue} 'or'\color{black}, \color{Goldenrod}bexpr \color{black} 
+	| \color{blue} 'not'\color{black}, \color{RoyalPurple}expr \color{black} 
 	% less
-	| \color{RoyalPurple}expr\color{black}, '<=', \color{RoyalPurple}expr\color{black}
-}\\
-% listExpr
-\texttt{\color{RawSienna}listExpr\color{black}} =\ &\texttt{
+	| \color{RoyalPurple}expr\color{black}, '<=', \color{RoyalPurple}expr \color{black}
+|}\\
+&\texttt{
 	% list literal
-	[\color{RoyalPurple}expr\color{black}, \{",", \color{RoyalPurple}expr \color{black}\}]
-	% head/tail
-	| \color{RoyalPurple} expr\color{black}, ":", \color{RawSienna}listExpr \color{black}
+	| [\color{RoyalPurple}expr\color{black}, \{",", \color{RoyalPurple}expr \color{black}\}]
+	% cons
+	| \color{RoyalPurple} expr\color{black}, ":", \color{RoyalPurple}expr \color{black}
 	% concatenation
-	| \color{RawSienna}listExpr\color{black}, "++", \color{RawSienna}listExpr \color{black}
+	| \color{RoyalPurple}expr\color{black}, '++', \color{RoyalPurple}expr \color{black}
 }
 \end{align*}
 \section{Forcing continuation style}

@@ -20,8 +20,6 @@ import Parser.TypeDecls
   https://markkarpov.com/megaparsec/megaparsec.html
 -}
 
-keywords = ["type", "fn", "let", "in", "match", "with", "if", "then", "else", "and", "or", "not"]
-
 
 program :: Parser AST
 program = do

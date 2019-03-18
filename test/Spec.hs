@@ -69,6 +69,32 @@ main =
         parse program "" "type :: a = x : xs ++ ys;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EConcat (ECons (EVar "x") (EVar "xs")) (EVar "ys")]
         parse program "" "type :: a = xs ++ ys ++ zs;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EConcat (EConcat (EVar "xs") (EVar "ys")) (EVar "zs")]
         parse program "" "type :: a = x : xs ++ y : ys ++ z : zs;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EConcat (EConcat (ECons (EVar "x") (EVar "xs")) (ECons (EVar "y") (EVar "ys"))) (ECons (EVar "z") (EVar "zs"))]
+    describe "boolean parser" $ do
+      it "parses negation" $ do -- TODO maybe define negation using conjunction and disjunction if possible?
+        parse program "" "type :: a = not b;" `shouldParse` AST [] [FunDecl TInt "a" [] $ ENot $ EVar "b"]
+        parse program "" "type :: a = not (b + 2);" `shouldParse` AST [] [FunDecl TInt "a" [] $ ENot (EAdd (EVar "b") (EInt 2))]
+      it "parses conjunction" $ do
+        parse program "" "type :: a = x and y;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EAnd (EVar "x") (EVar "y")]
+        parse program "" "type :: a = 1 + x and 2 - y;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EAnd (EAdd (EInt 1) (EVar "x")) (ESub (EInt 2) (EVar "y"))]
+        parse program "" "type :: a = xand;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EVar "xand"]
+        parse program "" "type :: a = andx;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EVar "andx"]
+        parse program "" "type :: a = 1 + x and 2 - y and 3 * z;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EAnd (EAnd (EAdd (EInt 1) (EVar "x")) (ESub (EInt 2) (EVar "y"))) (EMul (EInt 3) (EVar "z"))]
+      it "parses disjunction" $ do
+        parse program "" "type :: a = a or a;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EOr (EVar "a") (EVar "a")]
+        parse program "" "type :: a = 1 + x or 2 - y;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EOr (EAdd (EInt 1) (EVar "x")) (ESub (EInt 2) (EVar "y"))]
+        parse program "" "type::a= xor;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EVar "xor"]
+        parse program "" "type::a= oreo;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EVar "oreo"]
+        parse program "" "type :: a = 1 and x or 2 and y;" `shouldParse` AST [] [FunDecl TInt "a" [] $ EOr (EAnd (EInt 1) (EVar "x")) (EAnd (EInt 2) (EVar "y"))]
+      it "parses equality" $ do
+        parse program "" "type :: a = a == a; " `shouldParse` AST [] [FunDecl TInt "a" [] $ EEq (EVar "a") (EVar "a")]
+        parse program "" "type :: a = a + 2 == a * 2; " `shouldParse` AST [] [FunDecl TInt "a" [] $ EEq (EAdd (EVar "a") (EInt 2)) (EMul (EVar "a") (EInt 2))]
+        parse program "" "type :: a = a == a and b == b; " `shouldParse` AST [] [FunDecl TInt "a" [] $ EAnd (EEq (EVar "a") (EVar "a")) (EEq (EVar "b") (EVar "b"))]
+        parse program "" "type :: a = a == a; " `shouldParse` AST [] [FunDecl TInt "a" [] $ EEq (EVar "a") (EVar "a")]
+      it "parses less than or equal" $ do
+        parse program "" "type :: a = a <= a; " `shouldParse` AST [] [FunDecl TInt "a" [] $ ELeq (EVar "a") (EVar "a")]
+        parse program "" "type :: a = a + 2 <= a * 2; " `shouldParse` AST [] [FunDecl TInt "a" [] $ ELeq (EAdd (EVar "a") (EInt 2)) (EMul (EVar "a") (EInt 2))]
+        parse program "" "type :: a = a <= a and b <= b; " `shouldParse` AST [] [FunDecl TInt "a" [] $ EAnd (ELeq (EVar "a") (EVar "a")) (ELeq (EVar "b") (EVar "b"))]
+        parse program "" "type :: a = a <= a; " `shouldParse` AST [] [FunDecl TInt "a" [] $ ELeq (EVar "a") (EVar "a")]
 
 {-
 
