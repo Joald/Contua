@@ -109,4 +109,7 @@ main =
         shouldParseExpr "let x + 1 = 2137 in x + 2" $ ELet (EVar "x" ^+^ EInt 1) (EInt 2137) (EVar "x" ^+^ EInt 2)
         shouldParseExpr "let x = if a then b else c in fn z . x + 1" $ ELet (EVar "x") (EIf (EVar "a") (EVar "b") (EVar "c")) (ELambda [EVar "z"] $ EVar "x" ^+^ EInt 1)
         shouldParseExpr "letx+12137+ainx2" $ EVar "letx" ^+^ EInt 12137 ^+^ EVar "ainx2"
-
+      it "parses match expressions" $ do
+        shouldParseExpr "match x with | 2137 => 69420" $ EMatch (EVar "x") [(EInt 2137, EInt 69420)]
+        shouldParseExpr "match x with | 2137 => 69420 | x : xs => 2137" $ EMatch (EVar "x") [(EInt 2137, EInt 69420), (EVar "x" ^:^ EVar "xs", EInt 2137)]
+        shouldParseExpr "match x with | 2137 => 69420 | 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420" $ EMatch (EVar "x") $ map (const (EInt 2137, EInt 69420)) [1..6]

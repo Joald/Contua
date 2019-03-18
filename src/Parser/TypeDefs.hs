@@ -30,7 +30,7 @@ data Expr =
   | EConcat Expr Expr
   | EWhere Expr (NonEmpty FunDecl)
   | EIf Expr Expr Expr
-  | EMatch Expr [Expr]
+  | EMatch Expr [(Expr, Expr)]
   | ELet Expr Expr Expr
   | EAnd Expr Expr
   | EOr Expr Expr

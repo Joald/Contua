@@ -24,11 +24,7 @@ funDecl = do
 
 
 lambda :: Parser Expr
-lambda = do
-  void (keyword "fn")
-  ids <- many identifier
-  void (symbol ".")
-  ELambda (map EVar ids) <$> expr
+lambda = ELambda <$ keyword "fn" <*> many (EVar <$> identifier) <* symbol "." <*> expr
 
 emptyList :: Parser Expr
 emptyList = symbol "[" >> symbol "]" >> return (EListLiteral [])
@@ -47,6 +43,9 @@ ifExpr = EIf <$ keyword "if" <*> expr <* keyword "then" <*> expr <* keyword "els
 letExpr :: Parser Expr
 letExpr = ELet <$ keyword "let" <*> expr <* symbol "=" <*> expr  <* keyword "in" <*> expr
 
+matchExpr :: Parser Expr
+matchExpr = EMatch <$ keyword "match" <*> expr <* keyword "with" <*> many ((,) <$ symbol "|" <*> expr <* symbol "=>" <*> expr)
+
 exprTerm :: Parser Expr
 exprTerm = choice
   [ try (parens expr)
@@ -56,7 +55,7 @@ exprTerm = choice
   , try emptyList <|> listLiteral
   , try (EVar <$> identifier)
   , letExpr
---  , matchExpr
+  , matchExpr
 --  , whereExpr
   ]
 
@@ -88,24 +87,3 @@ exprOperatorTable =
 
 expr :: Parser Expr
 expr = makeExprParser exprTerm exprOperatorTable
-
-
--- not added yet:
-
-
-matchExpr :: Parser Expr
-matchExpr = do
-  void (symbol "match")
-  em <- expr
-  void (symbol "in")
-  pats <- many $ do
-    void (symbol "|")
-    expr
-  return $ EMatch em pats
-
-whereExpr :: Parser Expr
-whereExpr = do
-  ep <- expr
-  void (symbol "where")
-  fs <- many funDecl
-  return $ EWhere ep (fromList fs)

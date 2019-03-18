@@ -82,10 +82,9 @@ Since the language will be pretty complicated in the 'backend', I tried to keep 
 	| \color{blue}'fn'\color{black}, \{ id \}, ".", \color{RoyalPurple}expr \color{black} 
 |}\\
 &\texttt{
-	% where
-	| \color{RoyalPurple}expr\color{black}, \color{blue}'where'\color{black}, \color{red} funDecl\color{black}, \{ \color{blue}'and'\color{black}, \color{red}funDecl \color{black} \} 
 	% let in
-	| \color{blue}'let'\color{black}, \color{red}funDecl\color{black}, \color{blue}'in'\color{black}, \color{RoyalPurple}expr \color{black} 
+	| \color{blue}'let'\color{black}, 
+	\color{RoyalPurple}expr \color{black}, "=",	\color{RoyalPurple}expr \color{black},	 \color{blue}'in'\color{black}, \color{RoyalPurple}expr \color{black} 
 |}\\
 &\texttt{
 	% match
@@ -93,7 +92,7 @@ Since the language will be pretty complicated in the 'backend', I tried to keep 
 |}\\
 &\texttt{
 	% if then else
-	| \color{blue}'if'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'then'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'else'\color{black}, \color{RoyalPurple}expr\color{black}
+	| \color{blue}'if'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'then'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'else'\color{black}, \color{RoyalPurple}expr \color{black}
 	% equality
 	| \color{RoyalPurple}expr\color{black}, '==',
 	\color{RoyalPurple}expr \color{black}
