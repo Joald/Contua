@@ -31,7 +31,7 @@ data Expr =
   | EWhere Expr (NonEmpty FunDecl)
   | EIf Expr Expr Expr
   | EMatch Expr [Expr]
-  | ELet Name Expr Expr
+  | ELet Expr Expr Expr
   | EAnd Expr Expr
   | EOr Expr Expr
   | ENot Expr
@@ -45,8 +45,6 @@ data Expr =
 (^-^) = ESub
 (^*^) = EMul
 (^$^) = EApply
-(-^) = ENeg
-(~^) = ENot
 (^++^) = EConcat
 (^:^) = ECons
 (^==^) = EEq

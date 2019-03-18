@@ -31,9 +31,7 @@ lambda = do
   ELambda (map EVar ids) <$> expr
 
 emptyList :: Parser Expr
-emptyList = do
-  void (symbol "[") >> void (symbol "]")
-  return $ EListLiteral []
+emptyList = symbol "[" >> symbol "]" >> return (EListLiteral [])
 
 listLiteral :: Parser Expr
 listLiteral = do
@@ -46,6 +44,9 @@ listLiteral = do
 ifExpr :: Parser Expr
 ifExpr = EIf <$ keyword "if" <*> expr <* keyword "then" <*> expr <* keyword "else" <*> expr
 
+letExpr :: Parser Expr
+letExpr = ELet <$ keyword "let" <*> expr <* symbol "=" <*> expr  <* keyword "in" <*> expr
+
 exprTerm :: Parser Expr
 exprTerm = choice
   [ try (parens expr)
@@ -53,10 +54,10 @@ exprTerm = choice
   , lambda
   , ifExpr
   , try emptyList <|> listLiteral
-  , try (EVar <$> identifier) -- needs to be last to not parse keywords as ids
+  , try (EVar <$> identifier)
+  , letExpr
 --  , matchExpr
 --  , whereExpr
---  , letExpr
   ]
 
 binary :: String -> (Expr -> Expr -> Expr) -> Operator Parser Expr
@@ -108,12 +109,3 @@ whereExpr = do
   void (symbol "where")
   fs <- many funDecl
   return $ EWhere ep (fromList fs)
-
-letExpr :: Parser Expr
-letExpr = do
-  void (symbol "let")
-  var <- identifier
-  void (symbol "=")
-  e1 <- expr
-  void (symbol "in")
-  ELet var e1 <$> expr
