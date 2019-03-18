@@ -6,14 +6,19 @@ import           Control.Monad
 import           Parser.Parser
 import           Parser.Expr
 import           Parser.TypeDefs
+import           Parser.TypeDecls
 import           Parser.Utils
 import           Text.Megaparsec       (parse, runParser)
 
+shouldParseExpr :: String -> Expr -> Expectation
 shouldParseExpr = shouldParse . parse expr ""
+
+shouldParseType :: String -> Type -> Expectation
+shouldParseType = shouldParse . parse type_ ""
 
 main :: IO ()
 main =
-  hspec $
+  hspec $ do
   describe "Expression parser" $ do
     describe "arithmetic parser" $ do
       it "parses integer literals" $ do
@@ -73,7 +78,7 @@ main =
         shouldParseExpr "xs ++ ys ++ zs" $ EConcat (EConcat (EVar "xs") (EVar "ys")) (EVar "zs")
         shouldParseExpr "x : xs ++ y : ys ++ z : zs" $ EConcat (EConcat (ECons (EVar "x") (EVar "xs")) (ECons (EVar "y") (EVar "ys"))) (ECons (EVar "z") (EVar "zs"))
     describe "boolean parser" $ do
-      it "parses negation" $ do -- TODO maybe define negation using conjunction and disjunction if possible?
+      it "parses negation" $ do
         shouldParseExpr "not b" $ ENot (EVar "b")
         shouldParseExpr "not (b + 2)" $ ENot (EVar "b" ^+^ EInt 2)
       it "parses conjunction" $ do
@@ -113,3 +118,8 @@ main =
         shouldParseExpr "match x with | 2137 => 69420" $ EMatch (EVar "x") [(EInt 2137, EInt 69420)]
         shouldParseExpr "match x with | 2137 => 69420 | x : xs => 2137" $ EMatch (EVar "x") [(EInt 2137, EInt 69420), (EVar "x" ^:^ EVar "xs", EInt 2137)]
         shouldParseExpr "match x with | 2137 => 69420 | 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420" $ EMatch (EVar "x") $ map (const (EInt 2137, EInt 69420)) [1..6]
+  describe "Type parser" $
+    it "parses type constructors" $ do
+      shouldParseType "Abcds" $ TCtor "Abcds"
+      shouldParseType "A123123bsdf324fds325" $ TCtor "A123123bsdf324fds325"
+      shouldParseType "AAAAAAAAAAAAAAAAAAAAAAAA" $ TCtor "AAAAAAAAAAAAAAAAAAAAAAAA"

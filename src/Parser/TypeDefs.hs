@@ -8,7 +8,7 @@ data FunDecl = FunDecl Type Name [Expr] Expr deriving (Show, Eq)
 
 data TypeDecl = TypeDecl TypeName [Name] Type deriving (Show, Eq)
 
-data Type = TInt | TBool | TFun [Type] | TAbstract Name deriving (Show, Eq)
+data Type = TCtor TypeName | TFun Type Type | TAbstract Name deriving (Show, Eq)
 
 type Name = String
 

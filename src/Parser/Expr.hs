@@ -56,17 +56,7 @@ exprTerm = choice
   , try (EVar <$> identifier)
   , letExpr
   , matchExpr
---  , whereExpr
   ]
-
-binary :: String -> (Expr -> Expr -> Expr) -> Operator Parser Expr
-binary  name f =  InfixL  (f <$ symbol name)
-binaryTry :: String -> (Expr -> Expr -> Expr) -> Operator Parser Expr
-binaryTry name f =  InfixL  (f <$ try (symbol name))
-
-prefix, postfix :: String -> (Expr -> Expr) -> Operator Parser Expr
-prefix  name f = Prefix  (f <$ symbol name)
-postfix name f = Postfix (f <$ symbol name)
 
 
 exprOperatorTable :: [[Operator Parser Expr]]

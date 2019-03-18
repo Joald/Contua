@@ -4,6 +4,7 @@ import Data.Void
 import Text.Megaparsec hiding (State)
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Char
+import Control.Monad.Combinators.Expr
 
 type Parser = Parsec Void String
 
@@ -20,10 +21,10 @@ symbol :: String -> Parser String
 symbol = L.symbol sc
 
 parens :: Parser a -> Parser a
-parens = between (symbol "(") (symbol ")")
+parens = symbol "(" `between` symbol ")"
 
 brackets :: Parser a -> Parser a
-brackets = between (symbol "[") (symbol "]")
+brackets = symbol "[" `between` symbol "]"
 
 op :: String -> Parser String
 op n = lexeme $ try $ string n <* notFollowedBy opChar
@@ -31,7 +32,17 @@ op n = lexeme $ try $ string n <* notFollowedBy opChar
 opChar :: Parser Char
 opChar = oneOf "-*+:"
 
-keywords = ["type", "fn", "let", "in", "match", "with", "if", "then", "else", "and", "or", "not"]
+binary :: String -> (a -> a -> a) -> Operator Parser a
+binary  name f =  InfixL  (f <$ symbol name)
+
+binaryTry :: String -> (a -> a -> a) -> Operator Parser a
+binaryTry name f =  InfixL  (f <$ try (symbol name))
+
+prefix, postfix :: String -> (a -> a) -> Operator Parser a
+prefix  name f = Prefix  (f <$ symbol name)
+postfix name f = Postfix (f <$ symbol name)
+
+keywords = ["type", "fn", "let", "in", "match", "with", "if", "then", "else", "and", "or", "not", "Int", "Bool"]
 
 withPredicate
   :: (a -> Bool)       -- ^ The check to perform on parsed input
@@ -52,4 +63,7 @@ keyword keyword = lexeme $ try $ string keyword <* notFollowedBy alphaNumChar
 
 
 identifier :: Parser String
-identifier = withPredicate (`notElem` keywords) "" (lexeme ((:) <$> lowerChar <*> many alphaNumChar <?> "identifier"))
+identifier = withPredicate (`notElem` keywords) "Expected identifier." (lexeme ((:) <$> lowerChar <*> many alphaNumChar <?> "identifier"))
+
+typeName :: Parser String
+typeName = withPredicate (`notElem` keywords) "Expected typename." (lexeme ((:) <$> upperChar <*> many alphaNumChar <?> "typename"))
