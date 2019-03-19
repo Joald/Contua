@@ -17,12 +17,16 @@ typeOperatorTable =
 
 typeTerm :: Parser Type
 typeTerm = choice
-  [ TAbstract <$> identifier
+  [ parens type_
+  , TAbstract <$> identifier
   , TCtor <$> typeName
   ]
 
 type_ :: Parser Type
 type_ = makeExprParser typeTerm typeOperatorTable
 
+typeVariant :: Parser TypeVariant
+typeVariant = TypeVariant <$> typeName <*> many type_
+
 typeDecl :: Parser TypeDecl
-typeDecl = flip (flip TypeDecl []) (TCtor "XD") <$> symbol "xd"
+typeDecl = TypeDecl <$ keyword "type" <*> typeName <*> many type_ <* symbol "=" <*> ((:) <$> typeVariant <*> many (symbol "|" *> typeVariant))

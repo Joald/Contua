@@ -16,6 +16,9 @@ shouldParseExpr = shouldParse . parse expr ""
 shouldParseType :: String -> Type -> Expectation
 shouldParseType = shouldParse . parse type_ ""
 
+shouldParseTypeDecl :: String -> TypeDecl -> Expectation
+shouldParseTypeDecl = shouldParse . parse typeDecl ""
+
 main :: IO ()
 main =
   hspec $ do
@@ -125,7 +128,14 @@ main =
       shouldParseType "AAAAAAAAAAAAAAAAAAAAAAAA" $ TCtor "AAAAAAAAAAAAAAAAAAAAAAAA"
     it "parses function types" $ do
       shouldParseType "x -> y" $ TAbstract "x" ^->^ TAbstract "y"
-      shouldParseType "x -> y -> y" $ TAbstract "x" ^->^ (TAbstract "y" ^->^ TAbstract "y")
+      shouldParseType "x -> y -> y" $ TAbstract "x" ^->^ TAbstract "y" ^->^ TAbstract "y"
     it "parses type application" $ do
       shouldParseType "x a" $ TAbstract "x" ^$$^ TAbstract "a"
-      shouldParseType "x a -> Int" $ (TAbstract "x" ^$$^ TAbstract "a") ^->^ TCtor "Int"
+      shouldParseType "a b c d e " $ TAbstract "a" ^$$^ TAbstract "b" ^$$^ TAbstract "c" ^$$^ TAbstract "d" ^$$^ TAbstract "e"
+      shouldParseType "x a -> Int" $ TAbstract "x" ^$$^ TAbstract "a" ^->^ TCtor "Int"
+    it "parses different type parenthesizations" $ do
+      shouldParseType "(a -> b) -> (b -> c) -> a -> c" $ (TAbstract "a" ^->^ TAbstract "b") ^->^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "a" ^->^ TAbstract "c"
+      shouldParseType "m a -> m (a -> m b) -> m b" $ TAbstract "m" ^$$^ TAbstract "a" ^->^ TAbstract "m" ^$$^ (TAbstract "a" ^->^ TAbstract "m" ^$$^ TAbstract "b") ^->^ TAbstract "m" ^$$^ TAbstract "b"
+    it "parses type declarations" $ do
+      shouldParseTypeDecl "type R = R Rational" $ TypeDecl "R" [] [TypeVariant "R" [TCtor "Rational"]]
+      shouldParseTypeDecl "type Maybe a = Just a | Nothing" $ TypeDecl "Maybe" [TAbstract "a"] [TypeVariant "Just" [TAbstract "a"], TypeVariant "Nothing" []]

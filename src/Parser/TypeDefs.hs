@@ -6,7 +6,10 @@ data AST = AST [TypeDecl] [FunDecl] deriving (Show, Eq)
 
 data FunDecl = FunDecl Type Name [Expr] Expr deriving (Show, Eq)
 
-data TypeDecl = TypeDecl TypeName [Name] Type deriving (Show, Eq)
+data TypeVariant = TypeVariant TypeName [Type] deriving (Show, Eq)
+
+-- type declaration contains name, args, and rhs
+data TypeDecl = TypeDecl TypeName [Type] [TypeVariant] deriving (Show, Eq)
 
 data Type =
     TCtor TypeName
@@ -14,6 +17,9 @@ data Type =
   | TFun Type Type
   | TApply Type Type
   deriving (Show, Eq)
+
+infixr 8 ^->^
+infixl 9 ^$$^
 
 (^->^) = TFun
 (^$$^) = TApply
