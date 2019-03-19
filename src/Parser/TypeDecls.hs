@@ -26,7 +26,7 @@ type_ :: Parser Type
 type_ = makeExprParser typeTerm typeOperatorTable
 
 typeVariant :: Parser TypeVariant
-typeVariant = TypeVariant <$> typeName <*> many type_
+typeVariant = TypeVariant <$> typeName <*> many typeTerm
 
 typeDecl :: Parser TypeDecl
-typeDecl = TypeDecl <$ keyword "type" <*> typeName <*> many type_ <* symbol "=" <*> ((:) <$> typeVariant <*> many (symbol "|" *> typeVariant))
+typeDecl = TypeDecl <$ keyword "type" <*> typeName <*> many (TAbstract <$> identifier) <* symbol "=" <*> ((:) <$> typeVariant <*> many (symbol "|" *> typeVariant)) <* symbol ";"

@@ -22,10 +22,7 @@ import Parser.TypeDecls
 
 
 program :: Parser AST
-program = do
-  types <- many $ try typeDecl
-  funcs <- some funDecl
-  return $ AST types funcs
+program = AST <$> many typeDecl <*> many funDecl
 
 parseProgram :: String -> IO ()
 parseProgram = parseTest program

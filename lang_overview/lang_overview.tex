@@ -47,9 +47,9 @@ Since the language will be pretty complicated in the 'backend', I tried to keep 
 % program
 \texttt{program}  =\ & \texttt{\{ \color{gray}typeDecl \color{black} \}, \{ \color{red}funDecl \color{black} \}}\\
 % funDecl
-\texttt{\color{red}funDecl\color{black}} =\ & \texttt{\color{ForestGreen}type\color{black}, '::', id, \{ id \}, "=", \color{RoyalPurple}expr\color{black}}\\
+\texttt{\color{red}funDecl\color{black}} =\ & \texttt{\color{ForestGreen}type\color{black}, '::', id, \{ id \}, "=", \color{RoyalPurple}expr\color{black}}, ";"\\
 % typeDecl
-\texttt{\color{gray}typeDecl\color{black}} =\ &\texttt{\color{blue}'type'\color{black}, ID, \{ id \}, "=", \color{RubineRed}typeCtor\color{black}, \{ "|", \color{RubineRed}typeCtor \color{black} \}}\\
+\texttt{\color{gray}typeDecl\color{black}} =\ &\texttt{\color{blue}'type'\color{black}, ID, \{ id \}, "=", \color{RubineRed}typeCtor\color{black}, \{ "|", \color{RubineRed}typeCtor \color{black} \}}, ";"\\
 % type
 \texttt{\color{ForestGreen}type\color{black}} =\ &\texttt{\color{CadetBlue}basicType \color{black} | (\color{ForestGreen}type\color{black}, \{ '->', \color{ForestGreen}type \color{black} \}) | "(", \color{ForestGreen}type\color{black}, ")"}\\
 % basicType

@@ -8,14 +8,23 @@ import qualified Text.Megaparsec.Char.Lexer     as L
 
 type Parser = Parsec Void String
 
+sc_ :: Parser () -> Parser ()
+sc_ x = L.space x (L.skipLineComment "#") (L.skipBlockComment "#{" "}#")
+
 sc :: Parser ()
-sc = L.space space1 (L.skipLineComment "#") (L.skipBlockComment "#{" "}#")
+sc = sc_ space1
+
+scDecl :: Parser ()
+scDecl = sc_ $ space1 >> eol >> return ()
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
 symbol :: String -> Parser String
 symbol = L.symbol sc
+
+--decl :: Parser a -> Parser a
+
 
 parens :: Parser a -> Parser a
 parens = symbol "(" `between` symbol ")"

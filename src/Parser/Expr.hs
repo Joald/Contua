@@ -54,6 +54,7 @@ exprTerm = choice
   , ifExpr
   , try emptyList <|> listLiteral
   , try (EVar <$> identifier)
+  , try (ETypeName <$> typeName)
   , letExpr
   , matchExpr
   ]

@@ -8,7 +8,8 @@ import           Parser.Expr
 import           Parser.TypeDefs
 import           Parser.TypeDecls
 import           Parser.Utils
-import           Text.Megaparsec       (parse, runParser)
+import           Text.Megaparsec       (parse, runParser, eof)
+import Text.Megaparsec.Error.Builder (ET)
 
 shouldParseExpr :: String -> Expr -> Expectation
 shouldParseExpr = shouldParse . parse expr ""
@@ -18,6 +19,12 @@ shouldParseType = shouldParse . parse type_ ""
 
 shouldParseTypeDecl :: String -> TypeDecl -> Expectation
 shouldParseTypeDecl = shouldParse . parse typeDecl ""
+
+shouldParseFunDecl :: String -> FunDecl -> Expectation
+shouldParseFunDecl = shouldParse . parse funDecl ""
+
+shouldParseProgram :: String -> AST -> Expectation
+shouldParseProgram = shouldParse . parse program ""
 
 main :: IO ()
 main =
@@ -136,6 +143,24 @@ main =
     it "parses different type parenthesizations" $ do
       shouldParseType "(a -> b) -> (b -> c) -> a -> c" $ (TAbstract "a" ^->^ TAbstract "b") ^->^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "a" ^->^ TAbstract "c"
       shouldParseType "m a -> m (a -> m b) -> m b" $ TAbstract "m" ^$$^ TAbstract "a" ^->^ TAbstract "m" ^$$^ (TAbstract "a" ^->^ TAbstract "m" ^$$^ TAbstract "b") ^->^ TAbstract "m" ^$$^ TAbstract "b"
+  describe "Declaration parser" $ do
     it "parses type declarations" $ do
-      shouldParseTypeDecl "type R = R Rational" $ TypeDecl "R" [] [TypeVariant "R" [TCtor "Rational"]]
-      shouldParseTypeDecl "type Maybe a = Just a | Nothing" $ TypeDecl "Maybe" [TAbstract "a"] [TypeVariant "Just" [TAbstract "a"], TypeVariant "Nothing" []]
+      shouldParseTypeDecl "type R = R Rational;" $ TypeDecl "R" [] [TypeVariant "R" [TCtor "Rational"]]
+      shouldParseTypeDecl "type Maybe a = Just a | Nothing;" $ TypeDecl "Maybe" [TAbstract "a"] [TypeVariant "Just" [TAbstract "a"], TypeVariant "Nothing" []]
+      shouldParseTypeDecl "type Either e a = Left e | Right a;" $ TypeDecl "Either" [TAbstract "e", TAbstract "a"] [TypeVariant "Left" [TAbstract "e"], TypeVariant "Right" [TAbstract "a"]]
+      shouldParseTypeDecl "type Expr = EVar Name | EInt Int | ETypeName TypeName | EAdd Expr Expr | ENeg Expr | ESub Expr Expr | EMul Expr Expr | EApply Expr Expr;" $ TypeDecl "Expr" [] [TypeVariant "EVar" [TCtor "Name"], TypeVariant "EInt" [TCtor "Int"], TypeVariant "ETypeName" [TCtor "TypeName"], TypeVariant "EAdd" [TCtor "Expr", TCtor "Expr"], TypeVariant "ENeg" [TCtor "Expr"], TypeVariant "ESub" [TCtor "Expr", TCtor "Expr"], TypeVariant "EMul" [TCtor "Expr", TCtor "Expr"], TypeVariant "EApply" [TCtor "Expr", TCtor "Expr"]]
+      shouldParseTypeDecl "type X a b = Y (a -> b) | Z (b -> a);" $ TypeDecl "X" [TAbstract "a", TAbstract "b"] [TypeVariant "Y" [TAbstract "a" ^->^ TAbstract "b"], TypeVariant "Z" [TAbstract "b" ^->^ TAbstract "a"]]
+      parse typeDecl "" `shouldFailOn` "type X a b = Y a -> b;" --err 18 (utok '-' <> etok '(' <> etok '|' <> eeof <> etoks "identifier" <> "typename")
+    it "parses function declarations" $ do
+      shouldParseFunDecl "(b -> c) -> (b -> c) :: f a b = a b;" $ FunDecl ((TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "b" ^->^ TAbstract "c") "f" (map EVar ["a", "b"]) $ EVar "a" ^$^ EVar "b"
+      shouldParseFunDecl "m (b -> c) -> m b -> Evald (m c) :: f x y = Evald ((getOut x) y);" $ FunDecl (TAbstract "m" ^$$^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "m" ^$$^ TAbstract "b" ^->^ TCtor "Evald" ^$$^ (TAbstract "m" ^$$^ TAbstract "c")) "f" (map EVar ["x", "y"]) $ ETypeName "Evald" ^$^ ((EVar "getOut" ^$^ EVar "x") ^$^ EVar "y")
+    it "parses programs" $
+      shouldParseProgram "type R = R Rational;\n\
+       \type Maybe a = Just a | Nothing;\n\
+       \type Either e a = Left e | Right a;\n\
+       \type Expr = EVar Name | EInt Int | ETypeName TypeName | EAdd Expr Expr | ENeg Expr | ESub Expr Expr | EMul Expr Expr | EApply Expr Expr;\n\
+       \type X a b = Y (a -> b) | Z (b -> a);\n\
+       \(b -> c) -> (b -> c) :: f a b = a b;\n\
+       \m (b -> c) -> m b -> Evald (m c) :: f x y = Evald ((getOut x) y);\n" $
+      AST [TypeDecl "R" [] [TypeVariant "R" [TCtor "Rational"]], TypeDecl "Maybe" [TAbstract "a"] [TypeVariant "Just" [TAbstract "a"], TypeVariant "Nothing" []], TypeDecl "Either" [TAbstract "e", TAbstract "a"] [TypeVariant "Left" [TAbstract "e"], TypeVariant "Right" [TAbstract "a"]], TypeDecl "Expr" [] [TypeVariant "EVar" [TCtor "Name"], TypeVariant "EInt" [TCtor "Int"], TypeVariant "ETypeName" [TCtor "TypeName"], TypeVariant "EAdd" [TCtor "Expr", TCtor "Expr"], TypeVariant "ENeg" [TCtor "Expr"], TypeVariant "ESub" [TCtor "Expr", TCtor "Expr"], TypeVariant "EMul" [TCtor "Expr", TCtor "Expr"], TypeVariant "EApply" [TCtor "Expr", TCtor "Expr"]], TypeDecl "X" [TAbstract "a", TAbstract "b"] [TypeVariant "Y" [TAbstract "a" ^->^ TAbstract "b"], TypeVariant "Z" [TAbstract "b" ^->^ TAbstract "a"]]]
+      [FunDecl ((TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "b" ^->^ TAbstract "c") "f" (map EVar ["a", "b"]) $ EVar "a" ^$^ EVar "b", FunDecl (TAbstract "m" ^$$^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "m" ^$$^ TAbstract "b" ^->^ TCtor "Evald" ^$$^ (TAbstract "m" ^$$^ TAbstract "c")) "f" (map EVar ["x", "y"]) $ ETypeName "Evald" ^$^ ((EVar "getOut" ^$^ EVar "x") ^$^ EVar "y")]

@@ -36,13 +36,11 @@ data Expr =
   | ENeg Expr
   | ESub Expr Expr
   | EMul Expr Expr
-  | EParen Expr
   | EApply Expr Expr
   | ELambda [Expr] Expr
   | EListLiteral [Expr]
   | ECons Expr Expr
   | EConcat Expr Expr
-  | EWhere Expr (NonEmpty FunDecl)
   | EIf Expr Expr Expr
   | EMatch Expr [(Expr, Expr)]
   | ELet Expr Expr Expr
