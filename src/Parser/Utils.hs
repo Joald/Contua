@@ -1,18 +1,15 @@
 module Parser.Utils where
 
-import Data.Void
-import Text.Megaparsec hiding (State)
-import qualified Text.Megaparsec.Char.Lexer as L
-import Text.Megaparsec.Char
-import Control.Monad.Combinators.Expr
+import           Control.Monad.Combinators.Expr
+import           Data.Void
+import           Text.Megaparsec                hiding (State)
+import           Text.Megaparsec.Char
+import qualified Text.Megaparsec.Char.Lexer     as L
 
 type Parser = Parsec Void String
 
 sc :: Parser ()
-sc = L.space
-  space1
-  (L.skipLineComment "#")
-  (L.skipBlockComment "#{" "}#")
+sc = L.space space1 (L.skipLineComment "#") (L.skipBlockComment "#{" "}#")
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
@@ -33,22 +30,25 @@ opChar :: Parser Char
 opChar = oneOf "-*+:"
 
 binary :: String -> (a -> a -> a) -> Operator Parser a
-binary  name f =  InfixL  (f <$ symbol name)
+binary name f = InfixL (f <$ symbol name)
+
+binaryR :: String -> (a -> a -> a) -> Operator Parser a
+binaryR name f = InfixR (f <$ symbol name)
 
 binaryTry :: String -> (a -> a -> a) -> Operator Parser a
-binaryTry name f =  InfixL  (f <$ try (symbol name))
+binaryTry name f = InfixL (f <$ try (symbol name))
 
 prefix, postfix :: String -> (a -> a) -> Operator Parser a
-prefix  name f = Prefix  (f <$ symbol name)
+prefix name f = Prefix (f <$ symbol name)
+
 postfix name f = Postfix (f <$ symbol name)
 
-keywords = ["type", "fn", "let", "in", "match", "with", "if", "then", "else", "and", "or", "not", "Int", "Bool"]
+keywords = ["type", "fn", "let", "in", "match", "with", "if", "then", "else", "and", "or", "not"]
 
-withPredicate
-  :: (a -> Bool)       -- ^ The check to perform on parsed input
-  -> String            -- ^ Message to print when the check fails
-  -> Parser a          -- ^ Parser to run
-  -> Parser a          -- ^ Resulting parser that performs the check
+withPredicate :: (a -> Bool) -- ^ The check to perform on parsed input
+  -> String -- ^ Message to print when the check fails
+  -> Parser a -- ^ Parser to run
+  -> Parser a -- ^ Resulting parser that performs the check
 withPredicate f msg p = do
   o <- getOffset
   r <- p
@@ -61,9 +61,16 @@ withPredicate f msg p = do
 keyword :: String -> Parser String
 keyword keyword = lexeme $ try $ string keyword <* notFollowedBy alphaNumChar
 
-
 identifier :: Parser String
-identifier = withPredicate (`notElem` keywords) "Expected identifier." (lexeme ((:) <$> lowerChar <*> many alphaNumChar <?> "identifier"))
+identifier =
+  withPredicate
+    (`notElem` keywords)
+    "Expected identifier, found keyword."
+    (lexeme ((:) <$> lowerChar <*> many alphaNumChar <?> "identifier"))
 
 typeName :: Parser String
-typeName = withPredicate (`notElem` keywords) "Expected typename." (lexeme ((:) <$> upperChar <*> many alphaNumChar <?> "typename"))
+typeName =
+  withPredicate
+    (`notElem` keywords)
+    "Expected typename, found keyword."
+    (lexeme ((:) <$> upperChar <*> many alphaNumChar <?> "typename"))

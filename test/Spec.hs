@@ -118,8 +118,14 @@ main =
         shouldParseExpr "match x with | 2137 => 69420" $ EMatch (EVar "x") [(EInt 2137, EInt 69420)]
         shouldParseExpr "match x with | 2137 => 69420 | x : xs => 2137" $ EMatch (EVar "x") [(EInt 2137, EInt 69420), (EVar "x" ^:^ EVar "xs", EInt 2137)]
         shouldParseExpr "match x with | 2137 => 69420 | 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420" $ EMatch (EVar "x") $ map (const (EInt 2137, EInt 69420)) [1..6]
-  describe "Type parser" $
+  describe "Type parser" $ do
     it "parses type constructors" $ do
       shouldParseType "Abcds" $ TCtor "Abcds"
       shouldParseType "A123123bsdf324fds325" $ TCtor "A123123bsdf324fds325"
       shouldParseType "AAAAAAAAAAAAAAAAAAAAAAAA" $ TCtor "AAAAAAAAAAAAAAAAAAAAAAAA"
+    it "parses function types" $ do
+      shouldParseType "x -> y" $ TAbstract "x" ^->^ TAbstract "y"
+      shouldParseType "x -> y -> y" $ TAbstract "x" ^->^ (TAbstract "y" ^->^ TAbstract "y")
+    it "parses type application" $ do
+      shouldParseType "x a" $ TAbstract "x" ^$$^ TAbstract "a"
+      shouldParseType "x a -> Int" $ (TAbstract "x" ^$$^ TAbstract "a") ^->^ TCtor "Int"

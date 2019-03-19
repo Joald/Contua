@@ -10,10 +10,16 @@ import Text.Megaparsec.Char
 import Control.Monad.Combinators.Expr
 
 typeOperatorTable :: [[Operator Parser Type]]
-typeOperatorTable = [[binary "<-" TFun]]
+typeOperatorTable =
+  [ [ binary "" TApply ]
+  , [ binaryR "->" TFun ]
+  ]
 
 typeTerm :: Parser Type
-typeTerm = TCtor <$> typeName
+typeTerm = choice
+  [ TAbstract <$> identifier
+  , TCtor <$> typeName
+  ]
 
 type_ :: Parser Type
 type_ = makeExprParser typeTerm typeOperatorTable

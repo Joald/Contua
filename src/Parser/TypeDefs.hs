@@ -8,7 +8,15 @@ data FunDecl = FunDecl Type Name [Expr] Expr deriving (Show, Eq)
 
 data TypeDecl = TypeDecl TypeName [Name] Type deriving (Show, Eq)
 
-data Type = TCtor TypeName | TFun Type Type | TAbstract Name deriving (Show, Eq)
+data Type =
+    TCtor TypeName
+  | TAbstract Name
+  | TFun Type Type
+  | TApply Type Type
+  deriving (Show, Eq)
+
+(^->^) = TFun
+(^$$^) = TApply
 
 type Name = String
 
