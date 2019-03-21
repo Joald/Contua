@@ -14,6 +14,7 @@ data TypeDecl = TypeDecl TypeName [Type] [TypeVariant] deriving (Show, Eq)
 data Type =
     TCtor TypeName
   | TAbstract Name
+  | TList Type
   | TFun Type Type
   | TApply Type Type
   deriving (Show, Eq)

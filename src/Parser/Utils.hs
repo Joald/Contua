@@ -23,9 +23,6 @@ lexeme = L.lexeme sc
 symbol :: String -> Parser String
 symbol = L.symbol sc
 
---decl :: Parser a -> Parser a
-
-
 parens :: Parser a -> Parser a
 parens = symbol "(" `between` symbol ")"
 
@@ -74,12 +71,12 @@ identifier :: Parser String
 identifier =
   withPredicate
     (`notElem` keywords)
-    "Expected identifier, found keyword."
+    "Expected identifier, got keyword."
     (lexeme ((:) <$> lowerChar <*> many alphaNumChar <?> "identifier"))
 
 typeName :: Parser String
 typeName =
   withPredicate
     (`notElem` keywords)
-    "Expected typename, found keyword."
+    "Expected typename, got keyword."
     (lexeme ((:) <$> upperChar <*> many alphaNumChar <?> "typename"))

@@ -143,6 +143,10 @@ main =
     it "parses different type parenthesizations" $ do
       shouldParseType "(a -> b) -> (b -> c) -> a -> c" $ (TAbstract "a" ^->^ TAbstract "b") ^->^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "a" ^->^ TAbstract "c"
       shouldParseType "m a -> m (a -> m b) -> m b" $ TAbstract "m" ^$$^ TAbstract "a" ^->^ TAbstract "m" ^$$^ (TAbstract "a" ^->^ TAbstract "m" ^$$^ TAbstract "b") ^->^ TAbstract "m" ^$$^ TAbstract "b"
+      shouldParseType "[a]" $ TList $ TAbstract "a"
+      shouldParseType "[abcd]" $ TList $ TAbstract "abcd"
+      shouldParseType "[Int]" $ TList $ TCtor "Int"
+      shouldParseType "[a -> Int]" $ TList $ TAbstract "a" ^->^ TCtor "Int"
   describe "Declaration parser" $ do
     it "parses type declarations" $ do
       shouldParseTypeDecl "type R = R Rational;" $ TypeDecl "R" [] [TypeVariant "R" [TCtor "Rational"]]

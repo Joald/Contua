@@ -22,10 +22,10 @@ import Parser.TypeDecls
 
 
 program :: Parser AST
-program = AST <$> many typeDecl <*> many funDecl
+program = AST <$> many typeDecl <*> many funDecl <* eof
 
-parseProgram :: String -> IO ()
-parseProgram = parseTest program
+--parseProgram :: String -> String -> Either
+parseProgram = parse program
 
 
 
