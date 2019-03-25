@@ -12,39 +12,59 @@ import Parser.TypeDecls
 import Data.List.NonEmpty (fromList)
 
 funDecl :: Parser FunDecl
-funDecl = do
-  fnType <- type_
-  void (symbol "::")
-  name <- identifier
-  args <- many identifier
-  void (symbol "=")
-  e <- expr
-  void (symbol ";")
-  return $ FunDecl fnType name (map EVar args) e
+funDecl =
+  FunDecl
+    <$> type_
+    <* symbol "::"
+    <*> identifier
+    <*> many (EVar <$> identifier)
+    <* symbol "="
+    <*> expr
+    <* symbol ";"
 
 
 lambda :: Parser Expr
-lambda = ELambda <$ keyword "fn" <*> many (EVar <$> identifier) <* symbol "." <*> expr
+lambda =
+  ELambda
+    <$ keyword "fn"
+    <*> many (EVar <$> identifier)
+    <* symbol "."
+    <*> expr
 
 emptyList :: Parser Expr
-emptyList = symbol "[" >> symbol "]" >> return (EListLiteral [])
+emptyList = EListLiteral [] <$ symbol "[" <* symbol "]"
 
 listLiteral :: Parser Expr
-listLiteral = do
-  void (symbol "[")
-  e <- expr
-  rest <- many (symbol "," >> expr)
-  void (symbol "]")
-  return . EListLiteral $ e : rest
+listLiteral = EListLiteral <$> brackets (expr `sepBy` symbol ",")
 
 ifExpr :: Parser Expr
-ifExpr = EIf <$ keyword "if" <*> expr <* keyword "then" <*> expr <* keyword "else" <*> expr
+ifExpr =
+  EIf
+    <$ keyword "if"
+    <*> expr
+    <* keyword "then"
+    <*> expr
+    <* keyword "else"
+    <*> expr
 
 letExpr :: Parser Expr
-letExpr = ELet <$ keyword "let" <*> expr <* symbol "=" <*> expr  <* keyword "in" <*> expr
+letExpr =
+  ELet
+    <$ keyword "let"
+    <*> expr
+    <* symbol "="
+    <*> expr
+    <* keyword "in"
+    <*> expr
 
 matchExpr :: Parser Expr
-matchExpr = EMatch <$ keyword "match" <*> expr <* keyword "with" <*> many ((,) <$ symbol "|" <*> expr <* symbol "=>" <*> expr)
+matchExpr =
+  EMatch
+    <$ keyword "match"
+    <*> expr
+    <* keyword "with"
+    <* optional (symbol "|")
+    <*> ((,) <$> expr <* symbol "=>" <*> expr) `sepBy` symbol "|"
 
 exprTerm :: Parser Expr
 exprTerm = choice

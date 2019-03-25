@@ -6,13 +6,7 @@ import System.IO
 import Control.Monad
 import Parser.TypeDefs
 import Control.Monad.Trans.Maybe
-
-
-parseFile :: String -> Maybe AST
-parseFile fname = do
-
-  return $ AST [] []
-
+import TypeSystem.TypeSystem
 
 {- | Prints the contents of all files in the arguments. -}
 catMain :: IO ()
@@ -22,10 +16,9 @@ catMain = getArgs >>= mapM_ ((>>= print) . readFile)
 {- | Parses one file and prints the AST. -}
 oneFileParser :: IO ()
 oneFileParser = do
-  x <- getArgs
-  let fname = head x
+  fname:_ <- getArgs
   contents <- readFile fname
-  print $ parseProgram fname contents
+  print $ parseProgram fname contents >>= typeCheck
 
 main :: IO ()
 main = oneFileParser
