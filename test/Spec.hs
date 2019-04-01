@@ -10,6 +10,10 @@ import           Parser.TypeDecls
 import           Parser.Utils
 import           Text.Megaparsec       (parse, runParser, eof)
 import Text.Megaparsec.Error.Builder (ET)
+import TypeSystem.TypeDefs
+import TypeSystem.Preprocessor
+import Semantics.Builtins 
+
 
 shouldParseExpr :: String -> Expr -> Expectation
 shouldParseExpr = shouldParse . parse expr ""
@@ -67,9 +71,9 @@ main =
         shouldParseExpr "f (2137 + g) h" $ EApply (EApply (EVar "f") (EAdd (EInt 2137) (EVar "g"))) (EVar "h")
         shouldParseExpr "functionName 1 (functionName 2) (cuś) (functionName 4)" $ (((EVar "functionName" ^$^ EInt 1) ^$^ (EVar "functionName" ^$^ EInt 2)) ^$^ EVar "cuś") ^$^ (EVar "functionName" ^$^ EInt 4)
       it "parses lambdas" $ do
-        shouldParseExpr "fn x . x + 2" $ ELambda [EVar "x"] $ EVar "x" ^+^ EInt 2
-        shouldParseExpr "(fn x . x + 2) 2" $ ELambda [EVar "x"] (EVar "x" ^+^ EInt 2) ^$^ EInt 2
-        shouldParseExpr "map (fn x . x + 2) list" $ (EVar "map" ^$^ ELambda [EVar "x"] (EVar "x" ^+^ EInt 2)) ^$^ EVar "list"
+        shouldParseExpr "fn x . x + 2" $ ELambda ["x"] $ EVar "x" ^+^ EInt 2
+        shouldParseExpr "(fn x . x + 2) 2" $ ELambda ["x"] (EVar "x" ^+^ EInt 2) ^$^ EInt 2
+        shouldParseExpr "map (fn x . x + 2) list" $ (EVar "map" ^$^ ELambda ["x"] (EVar "x" ^+^ EInt 2)) ^$^ EVar "list"
         shouldParseExpr "fnnnn" $ EVar "fnnnn"
         shouldParseExpr "kafafafn" $ EVar "kafafafn"
     describe "list parser" $ do
@@ -120,44 +124,46 @@ main =
         shouldParseExpr "if 2137 then 2 else 3" $ EIf (EInt 2137) (EInt 2) (EInt 3)
         shouldParseExpr "if a and b then fn . 2137 else 3 + 2" $ EIf (EVar "a" ^&&^ EVar "b") (ELambda [] $ EInt 2137) (EInt 3 ^+^ EInt 2)
       it "parses let .. in expressions" $ do
-        shouldParseExpr "let x = 1 in x" $ ELet (EVar "x") (EInt 1) (EVar "x")
-        shouldParseExpr "let x + 1 = 2137 in x + 2" $ ELet (EVar "x" ^+^ EInt 1) (EInt 2137) (EVar "x" ^+^ EInt 2)
-        shouldParseExpr "let x = if a then b else c in fn z . x + 1" $ ELet (EVar "x") (EIf (EVar "a") (EVar "b") (EVar "c")) (ELambda [EVar "z"] $ EVar "x" ^+^ EInt 1)
+        shouldParseExpr "let x = 1 in x" $ ELet "x" (EInt 1) (EVar "x")
+        shouldParseExpr "let x = 2137 in x + 2" $ ELet "x" (EInt 2137) (EVar "x" ^+^ EInt 2)
+        shouldParseExpr "let x = if a then b else c in fn z . x + 1" $ ELet "x" (EIf (EVar "a") (EVar "b") (EVar "c")) (ELambda ["z"] $ EVar "x" ^+^ EInt 1)
         shouldParseExpr "letx+12137+ainx2" $ EVar "letx" ^+^ EInt 12137 ^+^ EVar "ainx2"
       it "parses match expressions" $ do
         shouldParseExpr "match x with | 2137 => 69420" $ EMatch (EVar "x") [(EInt 2137, EInt 69420)]
         shouldParseExpr "match x with | 2137 => 69420 | x : xs => 2137" $ EMatch (EVar "x") [(EInt 2137, EInt 69420), (EVar "x" ^:^ EVar "xs", EInt 2137)]
+        shouldParseExpr "match x with | 2137 => 69420 | x : xs => match y with | h:t => XD | 2137 => lmao" $ EMatch (EVar "x") [(EInt 2137, EInt 69420), (EVar "x" ^:^ EVar "xs", EMatch (EVar "y") [(EVar "h" ^:^ EVar "t", ETypeName (TypeName "XD")), (EInt 2137, EVar "lmao")])]
         shouldParseExpr "match x with | 2137 => 69420 | 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420" $ EMatch (EVar "x") $ map (const (EInt 2137, EInt 69420)) [1..6]
+        parse expr "" `shouldFailOn` "match x with"
   describe "Type parser" $ do
     it "parses type constructors" $ do
-      shouldParseType "Abcds" $ TCtor "Abcds"
-      shouldParseType "A123123bsdf324fds325" $ TCtor "A123123bsdf324fds325"
-      shouldParseType "AAAAAAAAAAAAAAAAAAAAAAAA" $ TCtor "AAAAAAAAAAAAAAAAAAAAAAAA"
+      shouldParseType "Abcds" $ mkTCtor "Abcds"
+      shouldParseType "A123123bsdf324fds325" $ mkTCtor "A123123bsdf324fds325"
+      shouldParseType "AAAAAAAAAAAAAAAAAAAAAAAA" $ mkTCtor "AAAAAAAAAAAAAAAAAAAAAAAA"
     it "parses function types" $ do
       shouldParseType "x -> y" $ TAbstract "x" ^->^ TAbstract "y"
       shouldParseType "x -> y -> y" $ TAbstract "x" ^->^ TAbstract "y" ^->^ TAbstract "y"
     it "parses type application" $ do
       shouldParseType "x a" $ TAbstract "x" ^$$^ TAbstract "a"
       shouldParseType "a b c d e " $ TAbstract "a" ^$$^ TAbstract "b" ^$$^ TAbstract "c" ^$$^ TAbstract "d" ^$$^ TAbstract "e"
-      shouldParseType "x a -> Int" $ TAbstract "x" ^$$^ TAbstract "a" ^->^ TCtor "Int"
+      shouldParseType "x a -> Int" $ TAbstract "x" ^$$^ TAbstract "a" ^->^ mkTCtor "Int"
     it "parses different type parenthesizations" $ do
       shouldParseType "(a -> b) -> (b -> c) -> a -> c" $ (TAbstract "a" ^->^ TAbstract "b") ^->^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "a" ^->^ TAbstract "c"
       shouldParseType "m a -> m (a -> m b) -> m b" $ TAbstract "m" ^$$^ TAbstract "a" ^->^ TAbstract "m" ^$$^ (TAbstract "a" ^->^ TAbstract "m" ^$$^ TAbstract "b") ^->^ TAbstract "m" ^$$^ TAbstract "b"
       shouldParseType "[a]" $ TList $ TAbstract "a"
       shouldParseType "[abcd]" $ TList $ TAbstract "abcd"
-      shouldParseType "[Int]" $ TList $ TCtor "Int"
-      shouldParseType "[a -> Int]" $ TList $ TAbstract "a" ^->^ TCtor "Int"
+      shouldParseType "[Int]" $ TList $ mkTCtor "Int"
+      shouldParseType "[a -> Int]" $ TList $ TAbstract "a" ^->^ mkTCtor "Int"
   describe "Declaration parser" $ do
     it "parses type declarations" $ do
-      shouldParseTypeDecl "type R = R Rational;" $ TypeDecl "R" [] [TypeVariant "R" [TCtor "Rational"]]
-      shouldParseTypeDecl "type Maybe a = Just a | Nothing;" $ TypeDecl "Maybe" [TAbstract "a"] [TypeVariant "Just" [TAbstract "a"], TypeVariant "Nothing" []]
-      shouldParseTypeDecl "type Either e a = Left e | Right a;" $ TypeDecl "Either" [TAbstract "e", TAbstract "a"] [TypeVariant "Left" [TAbstract "e"], TypeVariant "Right" [TAbstract "a"]]
-      shouldParseTypeDecl "type Expr = EVar Name | EInt Int | ETypeName TypeName | EAdd Expr Expr | ENeg Expr | ESub Expr Expr | EMul Expr Expr | EApply Expr Expr;" $ TypeDecl "Expr" [] [TypeVariant "EVar" [TCtor "Name"], TypeVariant "EInt" [TCtor "Int"], TypeVariant "ETypeName" [TCtor "TypeName"], TypeVariant "EAdd" [TCtor "Expr", TCtor "Expr"], TypeVariant "ENeg" [TCtor "Expr"], TypeVariant "ESub" [TCtor "Expr", TCtor "Expr"], TypeVariant "EMul" [TCtor "Expr", TCtor "Expr"], TypeVariant "EApply" [TCtor "Expr", TCtor "Expr"]]
-      shouldParseTypeDecl "type X a b = Y (a -> b) | Z (b -> a);" $ TypeDecl "X" [TAbstract "a", TAbstract "b"] [TypeVariant "Y" [TAbstract "a" ^->^ TAbstract "b"], TypeVariant "Z" [TAbstract "b" ^->^ TAbstract "a"]]
+      shouldParseTypeDecl "type R = R Rational;" $ TypeDecl (TypeName "R") [] [TypeVariant (TypeName "R") [mkTCtor "Rational"]]
+      shouldParseTypeDecl "type Maybe a = Just a | Nothing;" $ TypeDecl (TypeName "Maybe") [TAbstract "a"] [TypeVariant (TypeName "Just") [TAbstract "a"], TypeVariant (TypeName "Nothing") []]
+      shouldParseTypeDecl "type Either e a = Left e | Right a;" $ TypeDecl (TypeName "Either") [TAbstract "e", TAbstract "a"] [TypeVariant (TypeName "Left") [TAbstract "e"], TypeVariant (TypeName "Right") [TAbstract "a"]]
+      shouldParseTypeDecl "type Expr = EVar Name | EInt Int | ETypeName TypeName | EAdd Expr Expr | ENeg Expr | ESub Expr Expr | EMul Expr Expr | EApply Expr Expr;" $ TypeDecl (TypeName "Expr") [] [TypeVariant (TypeName "EVar") [mkTCtor "Name"], TypeVariant (TypeName "EInt") [mkTCtor "Int"], TypeVariant (TypeName "ETypeName") [mkTCtor "TypeName"], TypeVariant (TypeName "EAdd") [mkTCtor "Expr", mkTCtor "Expr"], TypeVariant (TypeName "ENeg") [mkTCtor "Expr"], TypeVariant (TypeName "ESub") [mkTCtor "Expr", mkTCtor "Expr"], TypeVariant (TypeName "EMul") [mkTCtor "Expr", mkTCtor "Expr"], TypeVariant (TypeName "EApply") [mkTCtor "Expr", mkTCtor "Expr"]]
+      shouldParseTypeDecl "type X a b = Y (a -> b) | Z (b -> a);" $ TypeDecl (TypeName "X") [TAbstract "a", TAbstract "b"] [TypeVariant (TypeName "Y") [TAbstract "a" ^->^ TAbstract "b"], TypeVariant (TypeName "Z") [TAbstract "b" ^->^ TAbstract "a"]]
       parse typeDecl "" `shouldFailOn` "type X a b = Y a -> b;" --err 18 (utok '-' <> etok '(' <> etok '|' <> eeof <> etoks "identifier" <> "typename")
     it "parses function declarations" $ do
-      shouldParseFunDecl "(b -> c) -> (b -> c) :: f a b = a b;" $ FunDecl ((TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "b" ^->^ TAbstract "c") "f" (map EVar ["a", "b"]) $ EVar "a" ^$^ EVar "b"
-      shouldParseFunDecl "m (b -> c) -> m b -> Evald (m c) :: f x y = Evald ((getOut x) y);" $ FunDecl (TAbstract "m" ^$$^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "m" ^$$^ TAbstract "b" ^->^ TCtor "Evald" ^$$^ (TAbstract "m" ^$$^ TAbstract "c")) "f" (map EVar ["x", "y"]) $ ETypeName "Evald" ^$^ ((EVar "getOut" ^$^ EVar "x") ^$^ EVar "y")
+      shouldParseFunDecl "(b -> c) -> (b -> c) :: f a b = a b;" $ FunDecl ((TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "b" ^->^ TAbstract "c") "f" ["a", "b"] $ EVar "a" ^$^ EVar "b"
+      shouldParseFunDecl "m (b -> c) -> m b -> Evald (m c) :: f x y = Evald ((getOut x) y);" $ FunDecl (TAbstract "m" ^$$^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "m" ^$$^ TAbstract "b" ^->^ mkTCtor "Evald" ^$$^ (TAbstract "m" ^$$^ TAbstract "c")) "f" ["x", "y"] $ ETypeName (TypeName "Evald") ^$^ ((EVar "getOut" ^$^ EVar "x") ^$^ EVar "y")
     it "parses programs" $
       shouldParseProgram "type R = R Rational;\n\
        \type Maybe a = Just a | Nothing;\n\
@@ -166,5 +172,9 @@ main =
        \type X a b = Y (a -> b) | Z (b -> a);\n\
        \(b -> c) -> (b -> c) :: f a b = a b;\n\
        \m (b -> c) -> m b -> Evald (m c) :: f x y = Evald ((getOut x) y);\n" $
-      AST [TypeDecl "R" [] [TypeVariant "R" [TCtor "Rational"]], TypeDecl "Maybe" [TAbstract "a"] [TypeVariant "Just" [TAbstract "a"], TypeVariant "Nothing" []], TypeDecl "Either" [TAbstract "e", TAbstract "a"] [TypeVariant "Left" [TAbstract "e"], TypeVariant "Right" [TAbstract "a"]], TypeDecl "Expr" [] [TypeVariant "EVar" [TCtor "Name"], TypeVariant "EInt" [TCtor "Int"], TypeVariant "ETypeName" [TCtor "TypeName"], TypeVariant "EAdd" [TCtor "Expr", TCtor "Expr"], TypeVariant "ENeg" [TCtor "Expr"], TypeVariant "ESub" [TCtor "Expr", TCtor "Expr"], TypeVariant "EMul" [TCtor "Expr", TCtor "Expr"], TypeVariant "EApply" [TCtor "Expr", TCtor "Expr"]], TypeDecl "X" [TAbstract "a", TAbstract "b"] [TypeVariant "Y" [TAbstract "a" ^->^ TAbstract "b"], TypeVariant "Z" [TAbstract "b" ^->^ TAbstract "a"]]]
-      [FunDecl ((TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "b" ^->^ TAbstract "c") "f" (map EVar ["a", "b"]) $ EVar "a" ^$^ EVar "b", FunDecl (TAbstract "m" ^$$^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "m" ^$$^ TAbstract "b" ^->^ TCtor "Evald" ^$$^ (TAbstract "m" ^$$^ TAbstract "c")) "f" (map EVar ["x", "y"]) $ ETypeName "Evald" ^$^ ((EVar "getOut" ^$^ EVar "x") ^$^ EVar "y")]
+      AST [TypeDecl (TypeName "R") [] [TypeVariant (TypeName "R") [mkTCtor "Rational"]], TypeDecl (TypeName "Maybe") [TAbstract "a"] [TypeVariant (TypeName "Just") [TAbstract "a"], TypeVariant (TypeName "Nothing") []], TypeDecl (TypeName "Either") [TAbstract "e", TAbstract "a"] [TypeVariant (TypeName "Left") [TAbstract "e"], TypeVariant (TypeName "Right") [TAbstract "a"]], TypeDecl (TypeName "Expr") [] [TypeVariant (TypeName "EVar") [mkTCtor "Name"], TypeVariant (TypeName "EInt") [mkTCtor "Int"], TypeVariant (TypeName "ETypeName") [mkTCtor "TypeName"], TypeVariant (TypeName "EAdd") [mkTCtor "Expr", mkTCtor "Expr"], TypeVariant (TypeName "ENeg") [mkTCtor "Expr"], TypeVariant (TypeName "ESub") [mkTCtor "Expr", mkTCtor "Expr"], TypeVariant (TypeName "EMul") [mkTCtor "Expr", mkTCtor "Expr"], TypeVariant (TypeName "EApply") [mkTCtor "Expr", mkTCtor "Expr"]], TypeDecl (TypeName "X") [TAbstract "a", TAbstract "b"] [TypeVariant (TypeName "Y") [TAbstract "a" ^->^ TAbstract "b"], TypeVariant (TypeName "Z") [TAbstract "b" ^->^ TAbstract "a"]]]
+      [FunDecl ((TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "b" ^->^ TAbstract "c") "f" ["a", "b"] $ EVar "a" ^$^ EVar "b", FunDecl (TAbstract "m" ^$$^ (TAbstract "b" ^->^ TAbstract "c") ^->^ TAbstract "m" ^$$^ TAbstract "b" ^->^ mkTCtor "Evald" ^$$^ (TAbstract "m" ^$$^ TAbstract "c")) "f" ["x", "y"] $ ETypeName (TypeName "Evald") ^$^ ((EVar "getOut" ^$^ EVar "x") ^$^ EVar "y")]
+  describe "Desugarer" $
+    it "desugars expressions" $ do
+      desugar (EVar "a" ^+^ EVar "b") `shouldBe` (IEVar addName ^^$ IEVar "a" ^^$ IEVar "b")
+      desugar (EMatch (EVar "x") [(EInt 1, EInt 10), (EInt 2, EInt 20)]) `shouldBe` IEApply (IEApply (IEApply (IEVar ifteName) (IEApply (IEApply (IEVar matchesName) (IEVar "x")) (ILit $ LInt 1))) (ILit $ LInt 10)) (IEApply (IEApply (IEApply (IEVar ifteName) (IEApply (IEApply (IEVar matchesName) (IEVar "x")) (ILit $ LInt 2))) (ILit $ LInt 20)) (ILit LError))

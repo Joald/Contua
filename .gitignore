@@ -4,4 +4,5 @@ Contua.cabal
 .idea
 *.aux
 *.log
+out
 *.gz

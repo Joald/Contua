@@ -28,6 +28,7 @@ dependencies:
 - parser-combinators
 - hspec >= 2.6.1
 - hspec-megaparsec
+- containers
 
 library:
   source-dirs: src

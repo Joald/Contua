@@ -16,10 +16,10 @@ funDecl =
   FunDecl
     <$> type_
     <* symbol "::"
-    <*> identifier
-    <*> many (EVar <$> identifier)
+    <*> identifier -- function name
+    <*> many identifier -- args
     <* symbol "="
-    <*> expr
+    <*> expr -- body
     <* symbol ";"
 
 
@@ -27,7 +27,7 @@ lambda :: Parser Expr
 lambda =
   ELambda
     <$ keyword "fn"
-    <*> many (EVar <$> identifier)
+    <*> many identifier
     <* symbol "."
     <*> expr
 
@@ -51,7 +51,7 @@ letExpr :: Parser Expr
 letExpr =
   ELet
     <$ keyword "let"
-    <*> expr
+    <*> identifier
     <* symbol "="
     <*> expr
     <* keyword "in"
@@ -63,8 +63,7 @@ matchExpr =
     <$ keyword "match"
     <*> expr
     <* keyword "with"
-    <* optional (symbol "|")
-    <*> ((,) <$> expr <* symbol "=>" <*> expr) `sepBy` symbol "|"
+    <*> some ((,) <$ symbol "|" <*> expr <* symbol "=>" <*> expr)
 
 exprTerm :: Parser Expr
 exprTerm = choice

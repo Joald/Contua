@@ -5,6 +5,7 @@ import           Data.Void
 import           Text.Megaparsec                hiding (State)
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer     as L
+import Parser.TypeDefs (TypeName(..))
 
 type Parser = Parsec Void String
 
@@ -74,8 +75,8 @@ identifier =
     "Expected identifier, got keyword."
     (lexeme ((:) <$> lowerChar <*> many alphaNumChar <?> "identifier"))
 
-typeName :: Parser String
-typeName =
+typeName :: Parser TypeName
+typeName = TypeName <$>
   withPredicate
     (`notElem` keywords)
     "Expected typename, got keyword."

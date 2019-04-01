@@ -7,6 +7,7 @@ import Control.Monad
 import Parser.TypeDefs
 import Control.Monad.Trans.Maybe
 import TypeSystem.TypeSystem
+import TypeSystem.Preprocessor
 
 {- | Prints the contents of all files in the arguments. -}
 catMain :: IO ()
@@ -18,7 +19,7 @@ oneFileParser :: IO ()
 oneFileParser = do
   fname:_ <- getArgs
   contents <- readFile fname
-  print $ parseProgram fname contents >>= typeCheck
+  print $ parseProgram fname contents >>= typeCheck . preprocess
 
 main :: IO ()
 main = oneFileParser

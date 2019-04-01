@@ -1,5 +1,6 @@
 module Parser.Parser
     ( parseProgram
+    , ParserError
     , program
     ) where
 
