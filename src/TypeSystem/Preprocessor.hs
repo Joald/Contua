@@ -15,7 +15,7 @@ infixl 9 ^^$
 desugar :: Expr -> IExpr
 desugar (EVar x) = IEVar x
 desugar (EInt x) = ILit $ LInt x
-desugar (ETypeName x) = IETypeCtor x
+desugar (ETypeName x) = IEVar $ unTypeName x
 desugar (EAdd e1 e2) = IEVar addName ^^$ desugar e1 ^^$ desugar e2
 desugar (ESub e1 e2) = IEVar subName ^^$ desugar e1 ^^$ desugar e2
 desugar (EMul e1 e2) = IEVar mulName ^^$ desugar e1 ^^$ desugar e2

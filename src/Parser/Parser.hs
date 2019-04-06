@@ -2,6 +2,7 @@ module Parser.Parser
     ( parseProgram
     , ParserError
     , program
+    , Parser
     ) where
 
 import Control.Applicative hiding (many, some)

@@ -6,19 +6,45 @@ data AST = AST [TypeDecl] [FunDecl] deriving (Show, Eq)
 
 data FunDecl = FunDecl { fnType :: Type, fnName :: Name, fnArgs :: [Name], fnBody :: Expr } deriving (Show, Eq)
 
-data TypeVariant = TypeVariant TypeName [Type] deriving (Show, Eq)
+data TypeVariant = TypeVariant { tvName :: TypeName, tvArgs :: [Type] } deriving (Show, Eq)
 
 -- type declaration contains name, args, and rhs
 data TypeDecl = TypeDecl TypeName [Type] [TypeVariant] deriving (Show, Eq)
 
+data Kind =
+    KStar
+  | KArrow Kind Kind
+  | KUnknown Name
+  deriving (Eq)
+
+showKind :: Kind -> String
+showKind t@(KArrow _ _) = '(' : show t ++ ")"
+showKind t = show t
+
+instance Show Kind where
+  show KStar = "*"
+  show (KArrow k1 k2) = showKind k1 ++ " -> " ++ show k2
+  show (KUnknown name) = name
+
 data Type =
     TCtor TypeName
-  | TAbstract Name
+  | TPoly Name
   | TList Type
-  | TFun Type Type
+  | TArrow Type Type
   | TApply Type Type
-  | TPattern
-  deriving (Show, Eq)
+  | TPattern Type
+  deriving (Eq)
+
+instance Show Type where
+  show (TPoly name) = name
+  show (TList t) = "[" ++ show t ++ "]"
+  show (TApply t1 t2) = show t1 ++ " " ++ show t2
+  show (TCtor (TypeName name)) = name
+  show (TArrow t1 t2) = showType t1 ++ " -> " ++ show t2
+
+showType :: Type -> String
+showType t@(TArrow _ _) = "(" ++ show t ++ ")"
+showType t = show t
 
 -- | Type construction helpers.
 
@@ -31,7 +57,7 @@ mkTCtor = TCtor . TypeName
 aType, intType, aListType, boolType :: Type
 intType = mkTCtor "Int"
 boolType = mkTCtor "Bool"
-aType = TAbstract "a"
+aType = TPoly "a"
 aListType = TList aType
 
 binaryType, unaryType :: Type -> Type
@@ -47,7 +73,7 @@ data Pattern =
   deriving (Show, Eq)
 
 infixr 8 ^->^
-(^->^) = TFun
+(^->^) = TArrow
 
 infixl 9 ^$$^
 (^$$^) = TApply

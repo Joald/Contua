@@ -12,14 +12,14 @@ import Control.Monad.Combinators.Expr
 typeOperatorTable :: [[Operator Parser Type]]
 typeOperatorTable =
   [ [ binary "" TApply ]
-  , [ binaryR "->" TFun ]
+  , [ binaryR "->" TArrow ]
   ]
 
 typeTerm :: Parser Type
 typeTerm = choice
   [ parens type_
   , TList <$> brackets type_
-  , TAbstract <$> identifier
+  , TPoly <$> identifier
   , TCtor <$> typeName
   ]
 
@@ -34,7 +34,7 @@ typeDecl =
   TypeDecl
     <$ keyword "type"
     <*> typeName
-    <*> many (TAbstract <$> identifier)
+    <*> many (TPoly <$> identifier)
     <* symbol "="
     <*> ((:) <$> typeVariant <*> many (symbol "|" *> typeVariant))
     <* symbol ";"

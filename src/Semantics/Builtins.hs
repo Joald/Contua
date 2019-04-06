@@ -47,5 +47,5 @@ builtinTypes = Map.fromList
   , (eqName, intType ^->^ intType ^->^ boolType)
   , (leqName, intType ^->^ intType ^->^ boolType)
   , (ifteName, boolType ^->^ intType ^->^ intType ^->^ intType ^->^ intType)
-  , (matchesName, TPattern ^->^ aType ^->^ boolType)
+  , (matchesName, aType ^->^ TPattern aType ^->^ boolType)
   ]
