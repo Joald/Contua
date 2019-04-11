@@ -3,7 +3,7 @@
 module TypeSystem.KindChecker where
 
 import           Parser.TypeDefs
-import           TypeSystem.Substitutable
+import           TypeSystem.KindSubstitutable
 import           TypeSystem.TypeDefs
 
 import           Control.Monad.Except
@@ -27,49 +27,42 @@ initState = KindState 0
 type KindEnv = Map Name Kind
 
 data KindError =
-    OccursCheck Name Kind
+    KindOccursCheck Name Kind
   | CannotUnify Kind Kind
   | KindApplicationError Type Kind Type Kind
 
 instance Show KindError where
-  show (OccursCheck name k) = "occursCheck: cannot construct infinite kind " ++ name ++ " ~ " ++ show k
-  show (CannotUnify k1 k2) = "cannot unify kind " ++ show k1 ++ " with kind " ++ show k2
-  show (KindApplicationError t1 k1 t2 k2) =
-    "cannot apply type " ++ show t1
-    ++ " of kind " ++ show k1
-    ++ " to type " ++ show t2
-    ++ " of kind " ++ show k2
+  show (KindOccursCheck name k) = "Occurs check: cannot construct infinite kind " ++ name ++ " ~ " ++ show k
+  show (CannotUnify k1 k2) = "Cannot unify kind " ++ show k1 ++ " with kind " ++ show k2
 
 runKindCheck :: KindEnv -> KindState -> KindCheck a -> Except KindError a
 runKindCheck env st m = evalStateT (runReaderT m env) st
 
-freshName :: MonadState KindState m => m Kind
-freshName =
+freshKindName :: MonadState KindState m => m Kind
+freshKindName =
   do KindState c <- get
      put $ KindState $ c + 1
      return $ KUnknown $ 'a' : show c
 
-output :: MonadWriter w m => m () -> m w
-output m = snd <$> listen m
 
 kindCheckType :: Type -> KindCheck (Kind, KindSubst)
 kindCheckType (TApply t1 t2) =
-  do name <- freshName
+  do name <- freshKindName
      (k1, s1) <- kindCheckType t1
-     (k2, s2) <- local (mapSubstMap s1) $ kindCheckType t2
+     (k2, s2) <- local (apply s1) $ kindCheckType t2
      s3 <- unifyKinds (apply s2 k1) (KArrow k2 name)
      return (apply s3 name, s3 `compose` s2 `compose` s1)
 
-kindCheckType (TPoly tName) =
+kindCheckType (TVar tName) =
   do env <- ask
      case Map.lookup tName env of
        Just kind -> return (kind, nullSubst)
-       Nothing   -> (, nullSubst) <$> freshName
+       Nothing   -> (, nullSubst) <$> freshKindName
 
-kindCheckType (TCtor (TypeName tName)) = kindCheckType $ TPoly tName
+kindCheckType (TName tName) = kindCheckType $ TVar tName
 kindCheckType (TArrow t1 t2) =
   do (k1, s1) <- kindCheckType t1
-     (k2, s2) <- local (mapSubstMap s1) $ kindCheckType t2
+     (k2, s2) <- local (apply s1) $ kindCheckType t2
      return (KStar, s2 `compose` s1)
 
 kindCheckType _ = return (KStar, nullSubst)
@@ -90,20 +83,20 @@ initArgKinds args = _initArgKinds args <$> (asks (KStar, , ) <*> get)
     _initArgKinds [] es = es
     _initArgKinds (arg:args) es =
       let (k, env, st) = _initArgKinds args es
-          (newName, st') = runState freshName st
+          (newName, st') = runState freshKindName st
        in (KArrow newName k, Map.insert arg newName env, st')
 
 kindCheckTypeDecl :: TypeDecl -> KindCheck Kind
-kindCheckTypeDecl (TypeDecl (TypeName name) args variants) =
+kindCheckTypeDecl (TypeDecl name args variants) =
   do env <- ask
-     (kind, env', initState) <- initArgKinds (map (\(TPoly x) -> x) args)
+     (kind, env', initState) <- initArgKinds (map (\(TVar x) -> x) args)
      put initState
      subst <- local (const env') $ kindCheckVariants variants
      return $ apply subst kind
 
 kindCheckTypeDecls :: [TypeDecl] -> KindCheck KindEnv
 kindCheckTypeDecls [] = ask
-kindCheckTypeDecls (decl@(TypeDecl (TypeName name) _ _):decls) = do
+kindCheckTypeDecls (decl@(TypeDecl name _ _):decls) = do
   k <- kindCheckTypeDecl decl
   localEnv name k $ kindCheckTypeDecls decls
 
@@ -115,9 +108,9 @@ monomorphise' :: Map Name Kind -> Map Name Kind
 monomorphise' = Map.map monomorphise
 
 doKindCheckIAST :: IAST -> KindCheck KindEnv
-doKindCheckIAST (IAST types args) =
+doKindCheckIAST (IAST types fns) =
   do env <- kindCheckTypeDecls types
-     sequence_ $ map (kindCheckType . ifnType) args
+     forM_ fns $ kindCheckType . ifnType
      return env
 
 kindCheckIAST :: IAST -> Except String KindEnv
@@ -125,22 +118,20 @@ kindCheckIAST ast = showException $ monomorphise' <$> runKindCheck Map.empty ini
 
 -- | Kind Substitution Solver
 
-type KindSubst = Subst Name Kind
-
 unifyKinds :: Kind -> Kind -> KindCheck KindSubst
 unifyKinds (KArrow l1 r1) (KArrow l2 r2) =
   do s1 <- unifyKinds l1 l2
      s2 <- unifyKinds (s1 `apply` r1) (s1 `apply` r2)
      return $ s2 `compose` s1
 
-unifyKinds (KUnknown name) k = bind name k
-unifyKinds k (KUnknown name) = bind name k
+unifyKinds (KUnknown name) k = bindKind name k
+unifyKinds k (KUnknown name) = bindKind name k
 unifyKinds k1 k2
   | k1 == k2 = return nullSubst
   | otherwise = throwError $ CannotUnify k1 k2
 
-bind :: Name -> Kind -> KindCheck KindSubst
-bind name k
+bindKind :: Name -> Kind -> KindCheck KindSubst
+bindKind name k
   | KUnknown name == k = return nullSubst
-  | occursCheck name k = throwError $ OccursCheck name k
+  | occursCheck name k = throwError $ KindOccursCheck name k
   | otherwise = return $ Subst $ Map.singleton name k

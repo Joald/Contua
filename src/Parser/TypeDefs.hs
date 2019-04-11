@@ -1,21 +1,48 @@
 module Parser.TypeDefs where
 
-import           Data.List.NonEmpty
+import Data.List (intercalate)
 
 data AST = AST [TypeDecl] [FunDecl] deriving (Show, Eq)
 
-data FunDecl = FunDecl { fnType :: Type, fnName :: Name, fnArgs :: [Name], fnBody :: Expr } deriving (Show, Eq)
+data FunDecl = FunDecl { fnType :: Type, fnName :: Name, fnArgs :: [Name], fnBody :: Expr } deriving (Eq)
 
-data TypeVariant = TypeVariant { tvName :: TypeName, tvArgs :: [Type] } deriving (Show, Eq)
+instance Show FunDecl where
+  show (FunDecl t name args body) =
+       show t
+    ++ " :: "
+    ++ name
+    ++ if null args then "" else " "
+    ++ unwords args
+    ++ " = "
+    ++ show body
 
--- type declaration contains name, args, and rhs
-data TypeDecl = TypeDecl TypeName [Type] [TypeVariant] deriving (Show, Eq)
+data TypeVariant = TypeVariant { tvName :: Name, tvArgs :: [Type] } deriving (Eq)
+
+instance Show TypeVariant where
+  show (TypeVariant name args) = unwords $ name : map show args
+
+data TypeDecl = TypeDecl { tdName :: Name, _tdArgs :: [Type], tdVariants :: [TypeVariant] } deriving (Eq)
+
+tdArgs :: TypeDecl -> [Name]
+tdArgs = map (\(TVar t) -> t) . _tdArgs
+
+typeFromDecl :: TypeDecl -> Type
+typeFromDecl (TypeDecl name args _) = foldl (^$$^) (TName name) args
+
+instance Show TypeDecl where
+  show (TypeDecl name args variants) =
+      "type "
+    ++ name
+    ++ if null args then "" else " "
+    ++ unwords (map show args)
+    ++ " = "
+    ++ intercalate " | " (map show variants)
 
 data Kind =
     KStar
   | KArrow Kind Kind
   | KUnknown Name
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 showKind :: Kind -> String
 showKind t@(KArrow _ _) = '(' : show t ++ ")"
@@ -27,20 +54,29 @@ instance Show Kind where
   show (KUnknown name) = name
 
 data Type =
-    TCtor TypeName
-  | TPoly Name
+    TName Name
+  | TVar Name
   | TList Type
   | TArrow Type Type
   | TApply Type Type
+  | TBottom
+  | TBuiltin Name
   | TPattern Type
-  deriving (Eq)
+  deriving (Eq, Ord)
+
+tLength :: Type -> Int
+tLength (TArrow _ t) = 1 + tLength t
+tLength _ = 0
 
 instance Show Type where
-  show (TPoly name) = name
+  show (TName name) = "name{" ++ name ++ "}"
+  show (TVar name) = "var{" ++ name ++ "}"
   show (TList t) = "[" ++ show t ++ "]"
-  show (TApply t1 t2) = show t1 ++ " " ++ show t2
-  show (TCtor (TypeName name)) = name
   show (TArrow t1 t2) = showType t1 ++ " -> " ++ show t2
+  show (TApply t1 t2) = show t1 ++ " " ++ show t2
+  show TBottom = "⊥"
+  show (TBuiltin name) = "builtin_type{" ++ name ++ "}"
+  show (TPattern t) = "pattern{" ++ show t ++ "}"
 
 showType :: Type -> String
 showType t@(TArrow _ _) = "(" ++ show t ++ ")"
@@ -48,16 +84,10 @@ showType t = show t
 
 -- | Type construction helpers.
 
-mkETypeName :: String -> Expr
-mkETypeName = ETypeName . TypeName
-
-mkTCtor :: String -> Type
-mkTCtor = TCtor . TypeName
-
 aType, intType, aListType, boolType :: Type
-intType = mkTCtor "Int"
-boolType = mkTCtor "Bool"
-aType = TPoly "a"
+intType = TName "Int"
+boolType = TName "Bool"
+aType = TVar "a"
 aListType = TList aType
 
 binaryType, unaryType :: Type -> Type
@@ -67,7 +97,7 @@ unaryType t = t ^->^ t
 
 data Pattern =
     Name
-  | PTApply TypeName Pattern
+  | PTApply Name Pattern
   | PCons Pattern Pattern
   | PList Pattern
   deriving (Show, Eq)
@@ -80,12 +110,10 @@ infixl 9 ^$$^
 
 type Name = String
 
-newtype TypeName = TypeName { unTypeName :: String } deriving (Show, Eq)
-
 data Expr =
     EVar Name
   | EInt Int
-  | ETypeName TypeName
+  | ETypeName Name
   | EAdd Expr Expr
   | ENeg Expr
   | ESub Expr Expr

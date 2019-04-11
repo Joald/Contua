@@ -1,0 +1,3 @@
+# constructing the omega combinator results in a type error: occurs check
+Int ::
+omega = let x = fn y . y y in 1;

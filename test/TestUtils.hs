@@ -15,7 +15,7 @@ import Parser.TypeDecls
 import Parser.Parser
 
 import TypeSystem.KindChecker
-import TypeSystem.Substitutable
+import TypeSystem.KindSubstitutable
 
 shouldParseExpr :: String -> Expr -> Expectation
 shouldParseExpr = shouldParse . parse expr ""
@@ -37,11 +37,11 @@ parseHelper defaultValue parser = fromRight defaultValue . parse parser ""
 
 
 parseTypeDecl :: String -> TypeDecl
-parseTypeDecl = parseHelper (TypeDecl (TypeName "Parse error") [] []) typeDecl
+parseTypeDecl = parseHelper (TypeDecl "Parse error" [] []) typeDecl
 parseTypeDecls :: String -> [TypeDecl]
-parseTypeDecls = parseHelper [TypeDecl (TypeName "Parse error") [] []] $ many typeDecl
+parseTypeDecls = parseHelper [TypeDecl "Parse error" [] []] $ many typeDecl
 parseType :: String -> Type
-parseType = parseHelper (TCtor (TypeName "Parse error")) type_
+parseType = parseHelper (TName "Parse error") type_
 parseAST :: String -> AST
 parseAST = parseHelper (AST [] []) program
 

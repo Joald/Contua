@@ -25,13 +25,10 @@ funDecl =
 lambda :: Parser Expr
 lambda =
   ELambda
-    <$ keyword "fn"
+    <$ (keyword "fn" <|> symbol "\\" <|> symbol "λ")
     <*> many identifier
     <* symbol "."
     <*> expr
-
-emptyList :: Parser Expr
-emptyList = EListLiteral [] <$ symbol "[" <* symbol "]"
 
 listLiteral :: Parser Expr
 listLiteral = EListLiteral <$> brackets (expr `sepBy` symbol ",")
@@ -66,13 +63,13 @@ matchExpr =
 
 exprTerm :: Parser Expr
 exprTerm = choice
-  [ try (parens expr)
-  , try (EInt <$> lexeme L.decimal)
+  [ try $ parens expr
+  , try $ EInt <$> lexeme L.decimal
   , lambda
   , ifExpr
-  , try emptyList <|> listLiteral
-  , try (EVar <$> identifier)
-  , try (ETypeName <$> typeName)
+  , listLiteral
+  , try $ EVar <$> identifier
+  , try $ ETypeName <$> typeName
   , letExpr
   , matchExpr
   ]

@@ -1,0 +1,14 @@
+type Num = Num Int;
+type Store = Store (Loc -> Num);
+type Loc = Loc Int;
+type Env = Env (Name -> Store);
+type Expr =
+    ENum Num
+  | EAdd Expr Expr
+  | ESub Expr Expr
+  | EMul Expr Expr;
+type BExpr =
+    EBool Bool
+  | EAnd BExpr BExpr
+  | EOr BExpr BExpr
+  | EEq Expr Expr;

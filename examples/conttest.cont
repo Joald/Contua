@@ -1,0 +1,23 @@
+Int -> Int ::
+fac n c =
+  if n == 0
+    then c 1
+    else fac (n - 1) (λf . c (n * f));
+
+Int -> Int ::
+fib n c =
+  if n <= 1
+    then c 1
+    else fib (n - 1) (λres . fib (n - 2) (λres2 . c (res + res2)));
+
+Int -> Int -> Int ::
+sum a b c = c (a + b);
+
+Int -> Int -> Int ::
+max2 a b c = c (if a <= b then b else a);
+
+Int -> Int -> Int -> Int ::
+max3 x y z =
+  if x <= z
+    then max2 y z
+    else max2 x y;

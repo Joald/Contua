@@ -1,0 +1,4 @@
+# attempt at polymorphic λ-abstraction results in a type error
+type Bool = True | False;
+Int ::
+polyLambda = (fn f . let g = (f True) in (f 3)) (fn x . x);

@@ -85,6 +85,7 @@ expressionParserTest = describe "Expression parser" $ do
         shouldParseExpr "1 + x or 2 - y" $ (EInt 1 ^+^ EVar "x") ^||^ (EInt 2 ^-^ EVar "y")
         shouldParseExpr "xor" $ EVar "xor"
         shouldParseExpr "oreo" $ EVar "oreo"
+        shouldParseExpr "xoreo" $ EVar "xoreo"
         shouldParseExpr "1 and x or 2 and y" $ (EInt 1 ^&&^ EVar "x") ^||^ (EInt 2 ^&&^ EVar "y")
       it "parses equality" $ do
         shouldParseExpr "a == a " $ EVar "a" ^==^ EVar "a"
@@ -102,6 +103,7 @@ expressionParserTest = describe "Expression parser" $ do
         shouldParseExpr "if2137then2else3" $ EVar "if2137then2else3"
         shouldParseExpr "if 2137 then 2 else 3" $ EIf (EInt 2137) (EInt 2) (EInt 3)
         shouldParseExpr "if a and b then fn . 2137 else 3 + 2" $ EIf (EVar "a" ^&&^ EVar "b") (ELambda [] $ EInt 2137) (EInt 3 ^+^ EInt 2)
+        shouldParseExpr "fn n . if n == 0 then 1 else n * fac2 (n - 1)" $ ELambda ["n"] $ EIf (EVar "n" ^==^ EInt 0) (EInt 1) (EVar "n" ^*^ (EVar "fac2" ^$^ (EVar "n" ^-^ EInt 1)))
       it "parses let .. in expressions" $ do
         shouldParseExpr "let x = 1 in x" $ ELet "x" (EInt 1) (EVar "x")
         shouldParseExpr "let x = 2137 in x + 2" $ ELet "x" (EInt 2137) (EVar "x" ^+^ EInt 2)
@@ -110,6 +112,6 @@ expressionParserTest = describe "Expression parser" $ do
       it "parses match expressions" $ do
         shouldParseExpr "match x with | 2137 => 69420" $ EMatch (EVar "x") [(EInt 2137, EInt 69420)]
         shouldParseExpr "match x with | 2137 => 69420 | x : xs => 2137" $ EMatch (EVar "x") [(EInt 2137, EInt 69420), (EVar "x" ^:^ EVar "xs", EInt 2137)]
-        shouldParseExpr "match x with | 2137 => 69420 | x : xs => match y with | h:t => XD | 2137 => lmao" $ EMatch (EVar "x") [(EInt 2137, EInt 69420), (EVar "x" ^:^ EVar "xs", EMatch (EVar "y") [(EVar "h" ^:^ EVar "t", ETypeName (TypeName "XD")), (EInt 2137, EVar "lmao")])]
+        shouldParseExpr "match x with | 2137 => 69420 | x : xs => match y with | h:t => XD | 2137 => lmao" $ EMatch (EVar "x") [(EInt 2137, EInt 69420), (EVar "x" ^:^ EVar "xs", EMatch (EVar "y") [(EVar "h" ^:^ EVar "t", ETypeName "XD"), (EInt 2137, EVar "lmao")])]
         shouldParseExpr "match x with | 2137 => 69420 | 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420| 2137 => 69420" $ EMatch (EVar "x") $ map (const (EInt 2137, EInt 69420)) [1..6]
         parse expr "" `shouldFailOn` "match x with"

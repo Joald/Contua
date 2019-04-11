@@ -14,7 +14,7 @@ import Parser.Parser
 import Parser.ParserSpec
 import Text.Megaparsec
 import Parser.Utils
-import TypeSystem.Substitutable
+import TypeSystem.KindSubstitutable
 import Control.Monad.Combinators.Expr (Operator, makeExprParser)
 import Control.Monad.Except (Except)
 

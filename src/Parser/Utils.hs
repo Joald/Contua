@@ -5,7 +5,6 @@ import           Data.Void
 import           Text.Megaparsec                hiding (State)
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer     as L
-import Parser.TypeDefs (TypeName(..))
 
 type Parser = Parsec Void String
 
@@ -15,8 +14,8 @@ sc_ x = L.space x (L.skipLineComment "#") (L.skipBlockComment "#{" "}#")
 sc :: Parser ()
 sc = sc_ space1
 
-scDecl :: Parser ()
-scDecl = sc_ $ space1 >> eol >> return ()
+--scDecl :: Parser ()
+--scDecl = sc_ $ space1 >> eol >> return ()
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
@@ -68,16 +67,15 @@ withPredicate f msg p = do
 keyword :: String -> Parser String
 keyword keyword = lexeme $ try $ string keyword <* notFollowedBy alphaNumChar
 
-identifier :: Parser String
-identifier =
+idWithFirst :: Parser Char -> Parser String
+idWithFirst letter =
   withPredicate
-    (`notElem` keywords)
-    "Expected identifier, got keyword."
-    (lexeme ((:) <$> lowerChar <*> many alphaNumChar <?> "identifier"))
+      (`notElem` keywords)
+      "Expected identifier, got keyword."
+      (lexeme ((:) <$> letter <*> many alphaNumChar <?> "identifier"))
 
-typeName :: Parser TypeName
-typeName = TypeName <$>
-  withPredicate
-    (`notElem` keywords)
-    "Expected typename, got keyword."
-    (lexeme ((:) <$> upperChar <*> many alphaNumChar <?> "typename"))
+identifier :: Parser String
+identifier = idWithFirst lowerChar
+
+typeName :: Parser String
+typeName = idWithFirst upperChar

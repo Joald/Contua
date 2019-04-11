@@ -1,0 +1,5 @@
+Int -> Int ::
+succ x = x + 1;
+
+Int ::
+one = (fn f. f succ (f 0)) (fn x. x);

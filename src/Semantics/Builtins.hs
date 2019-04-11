@@ -1,10 +1,13 @@
 module Semantics.Builtins where
 
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Data.Map (Map)
 import Data.List (isPrefixOf)
 
 import Parser.TypeDefs
+import TypeSystem.TypeDefs
+import TypeSystem.TypeSubstitutable
 
 type BuiltinName = String
 
@@ -32,9 +35,11 @@ leqName = makeBuiltin "less_than_or_equal"
 ifteName = makeBuiltin "if_then_else"
 matchesName = makeBuiltin "pattern_match" -- x matches y
 
+generalizeBuiltin :: Type -> Scheme
+generalizeBuiltin t = ForAll (Set.toList $ fv t) t
 
-builtinTypes :: Map BuiltinName Type
-builtinTypes = Map.fromList
+typesOfBuiltins :: Map BuiltinName Scheme
+typesOfBuiltins = Map.map generalizeBuiltin $ Map.fromList
   [ (addName, binaryType intType)
   , (subName, binaryType intType)
   , (negName, unaryType intType)
@@ -44,8 +49,12 @@ builtinTypes = Map.fromList
   , (andName, binaryType boolType)
   , (orName, binaryType boolType)
   , (notName, unaryType boolType)
-  , (eqName, intType ^->^ intType ^->^ boolType)
+  , (eqName, aType ^->^ aType ^->^ boolType)
   , (leqName, intType ^->^ intType ^->^ boolType)
-  , (ifteName, boolType ^->^ intType ^->^ intType ^->^ intType ^->^ intType)
+  , (ifteName, boolType ^->^ aType ^->^ aType ^->^ aType)
   , (matchesName, aType ^->^ TPattern aType ^->^ boolType)
   ]
+
+builtinTypes :: Map Name Type
+builtinTypes = Map.fromList . zip typeNames $ map TBuiltin typeNames
+  where typeNames = ["Int"]

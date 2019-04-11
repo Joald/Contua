@@ -16,6 +16,7 @@ import Parser.TypeDefs
 import Parser.Expr
 import Parser.TypeDecls
 import Data.Bifunctor (first)
+import Data.Void (Void)
 
 
 {- | This is the Contua language, the parser part.
@@ -25,12 +26,12 @@ import Data.Bifunctor (first)
 
 
 program :: Parser AST
-program = AST <$> many typeDecl <*> many funDecl <* eof
+program = AST <$ sc <*> many typeDecl <*> many funDecl <* eof
 
 type ParserError = String
 
 parseProgram :: String -> String -> Either ParserError AST
-parseProgram fname contents = first show $ parse program fname contents
+parseProgram fname contents = first errorBundlePretty $ parse program fname contents
 
 
 

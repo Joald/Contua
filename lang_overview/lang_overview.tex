@@ -16,21 +16,21 @@
 \definecolor{gray}{rgb}{0.5,0.5,0.5}
 \definecolor{mauve}{rgb}{0.58,0,0.82}
 \lstset{frame=tb,
-    language=Haskell,
-    aboveskip=3mm,
-    belowskip=3mm,
-    showstringspaces=false,
-    columns=flexible,
-    basicstyle={\small\ttfamily},
-    numbers=none,
-    numberstyle=\tiny\color{gray},
-    keywordstyle=\color{blue},
-    commentstyle=\color{dkgreen},
-    stringstyle=\color{mauve},
-    breaklines=true,
-    breakatwhitespace=true,
-    escapeinside={(*}{*)},          % if you want to add LaTeX within your code
-    tabsize=4
+	language=Haskell,
+	aboveskip=3mm,
+	belowskip=3mm,
+	showstringspaces=false,
+	columns=flexible,
+	basicstyle={\small\ttfamily},
+	numbers=none,
+	numberstyle=\tiny\color{gray},
+	keywordstyle=\color{blue},
+	commentstyle=\color{dkgreen},
+	stringstyle=\color{mauve},
+	breaklines=true,
+	breakatwhitespace=true,
+	escapeinside={(*}{*)},          % if you want to add LaTeX within your code
+	tabsize=4
 }
 
 \title{Overview of the Contua programming language.}
@@ -38,84 +38,132 @@
 \date{Feb 2019}
 
 \begin{document}
-\maketitle
-\section{Introduction}
-\paragraph{Contua} is a strongly typed functional programming language. It is conceived on a basis of the idea that the language should force the programmer to write all the functions continuation-style. It is not immediately clear what measures needs to be taken to disallow regular functions. I needed to come up with some conventions to achieve that result.
-\section{The syntax}
-Since the language will be pretty complicated in the 'backend', I tried to keep the syntax as simple as possible. In this grammar I omitted the whitespace rules.
-\begin{align*}
-% program
-\texttt{program}  =\ & \texttt{\{ \color{gray}typeDecl \color{black} \}, \{ \color{red}funDecl \color{black} \}}\\
-% funDecl
-\texttt{\color{red}funDecl\color{black}} =\ & \texttt{\color{ForestGreen}type\color{black}, '::', id, \{ id \}, "=", \color{RoyalPurple}expr\color{black}}, ";"\\
-% typeDecl
-\texttt{\color{gray}typeDecl\color{black}} =\ &\texttt{\color{blue}'type'\color{black}, ID, \{ id \}, "=", \color{RubineRed}typeCtor\color{black}, \{ "|", \color{RubineRed}typeCtor \color{black} \}}, ";"\\
-% type
-\texttt{\color{ForestGreen}type\color{black}} =\ &\texttt{\color{CadetBlue}basicType \color{black} | (\color{ForestGreen}type\color{black}, \{ '->', \color{ForestGreen}type \color{black} \}) | "(", \color{ForestGreen}type\color{black}, ")"}\\
-% basicType
-\texttt{\color{CadetBlue}basicType} =\ &	\texttt{\color{RubineRed}typeCtor \color{black}| id | "[", id, "]"}\\
-% typeCtor
-\texttt{\color{RubineRed}typeCtor\color{black}} =\ & \texttt{ID, \{ \color{ForestGreen}type \color{black} \}}\\
-% function
-% \texttt{\color{brown}function\color{black}} =\ & \texttt{}\\
-% expr
-\texttt{\color{RoyalPurple}expr\color{black}} =\ &  \texttt{
-	% variables
-	id
-	% type ctors
-	| ID
-	% +
-	| \color{RoyalPurple}expr\color{black}, "+", \color{RoyalPurple}expr \color{black} 
-	% -
-	| \color{RoyalPurple}expr\color{black}, "-", \color{RoyalPurple}expr \color{black} 
-	% *
-	| \color{RoyalPurple}expr\color{black}, "*", \color{RoyalPurple}expr \color{black}
-	% - unary
-	| "-", \color{RoyalPurple}expr \color{black}
-|}\\
-&\texttt{
-	% ()
-	| "(", \color{RoyalPurple}expr\color{black}, ")" 
-	% application
-	| \color{RoyalPurple}expr\color{black}, \color{RoyalPurple}expr \color{black} 
-	% lambda
-	| \color{blue}'fn'\color{black}, \{ id \}, ".", \color{RoyalPurple}expr \color{black} 
-|}\\
-&\texttt{
-	% let in
-	| \color{blue}'let'\color{black}, 
-	\color{RoyalPurple}expr \color{black}, "=",	\color{RoyalPurple}expr \color{black},	 \color{blue}'in'\color{black}, \color{RoyalPurple}expr \color{black} 
-|}\\
-&\texttt{
-	% match
-	| \color{blue}'match'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'with'\color{black}, \{ "|", \color{RoyalPurple}expr\color{black}, '=>', \color{RoyalPurple}expr \color{black} \}
-|}\\
-&\texttt{
-	% if then else
-	| \color{blue}'if'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'then'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'else'\color{black}, \color{RoyalPurple}expr \color{black}
-	% equality
-	| \color{RoyalPurple}expr\color{black}, '==',
-	\color{RoyalPurple}expr \color{black}
-|}\\
-&\texttt{
-	% conjunction
-	| \color{RoyalPurple}expr\color{black}, \color{blue}'and'\color{black}, \color{RoyalPurple}expr \color{black}
-	% disjunction
-	| \color{RoyalPurple}expr\color{black}, \color{blue} 'or'\color{black}, \color{RoyalPurple}expr \color{black}
-	% negation
-	| \color{blue} 'not'\color{black}, \color{RoyalPurple}expr \color{black} 
-	% less
-	| \color{RoyalPurple}expr\color{black}, '<=', \color{RoyalPurple}expr \color{black}
-|}\\
-&\texttt{
-	% list literal
-	| [\color{RoyalPurple}expr\color{black}, \{",", \color{RoyalPurple}expr \color{black}\}]
-	% cons
-	| \color{RoyalPurple} expr\color{black}, ":", \color{RoyalPurple}expr \color{black}
-	% concatenation
-	| \color{RoyalPurple}expr\color{black}, '++', \color{RoyalPurple}expr \color{black}
-}
-\end{align*}
-\section{Forcing continuation style}
-The current plan on forcing the continuation style on the programmer is to add an implicit modification on the type of all functions that are defined in the language. For example, if a function is annotated with type \texttt{a -> b -> c}, then the actual type of the function is \texttt{a -> b -> (c -> d) -> d}, and the result type \texttt{d} is always generic.
+	\maketitle
+	\section{Introduction}
+	\paragraph{Contua} is a strongly typed functional programming language. It is conceived on a basis of the idea that the language should force the programmer to write all the functions continuation-style. It is not immediately clear what measures needs to be taken to disallow regular functions. I needed to come up with some conventions to achieve that result.
+	\section{The syntax}
+	Since the language will be pretty complicated in the 'backend', I tried to keep the syntax as simple as possible. In this grammar I omitted the whitespace rules.
+	\begin{align*}
+	% program
+	\texttt{program}  =\ & \texttt{\{ \color{gray}typeDecl \color{black} \}, \{ \color{red}funDecl \color{black} \}}\\
+	% funDecl
+	\texttt{\color{red}funDecl\color{black}} =\ & \texttt{\color{ForestGreen}type\color{black}, '::', id, \{ id \}, "=", \color{RoyalPurple}expr\color{black}}, ";"\\
+	% typeDecl
+	\texttt{\color{gray}typeDecl\color{black}} =\ &\texttt{\color{blue}'type'\color{black}, ID, \{ id \}, "=", \color{RubineRed}typeCtor\color{black}, \{ "|", \color{RubineRed}typeCtor \color{black} \}}, ";"\\
+	% type
+	\texttt{\color{ForestGreen}type\color{black}} =\ &\texttt{\color{CadetBlue}basicType \color{black} | (\color{ForestGreen}type\color{black}, \{ '->', \color{ForestGreen}type \color{black} \}) | "(", \color{ForestGreen}type\color{black}, ")"}\\
+	% basicType
+	\texttt{\color{CadetBlue}basicType} =\ &	\texttt{\color{RubineRed}typeCtor \color{black}| id | "[", id, "]"}\\
+	% typeCtor
+	\texttt{\color{RubineRed}typeCtor\color{black}} =\ & \texttt{ID, \{ \color{ForestGreen}type \color{black} \}}\\
+	% function
+	% \texttt{\color{brown}function\color{black}} =\ & \texttt{}\\
+	% expr
+	\texttt{\color{RoyalPurple}expr\color{black}} =\ &  \texttt{
+		% variables
+		id
+		% type ctors
+		| ID
+		% +
+		| \color{RoyalPurple}expr\color{black}, "+", \color{RoyalPurple}expr \color{black} 
+		% -
+		| \color{RoyalPurple}expr\color{black}, "-", \color{RoyalPurple}expr \color{black} 
+		% *
+		| \color{RoyalPurple}expr\color{black}, "*", \color{RoyalPurple}expr \color{black}
+		% - unary
+		| "-", \color{RoyalPurple}expr \color{black}
+		|}\\
+	&\texttt{
+		% ()
+		| "(", \color{RoyalPurple}expr\color{black}, ")" 
+		% application
+		| \color{RoyalPurple}expr\color{black}, \color{RoyalPurple}expr \color{black} 
+		% lambda
+		| (\color{blue}'fn'\color{black} | "\char`\\" | "$\lambda$"), \{ id \}, ".", \color{RoyalPurple}expr \color{black}
+		|}\\
+	&\texttt{
+		% let in
+		| \color{blue}'let'\color{black}, 
+		\color{RoyalPurple}expr \color{black}, "=",	\color{RoyalPurple}expr \color{black},	 \color{blue}'in'\color{black}, \color{RoyalPurple}expr \color{black} 
+		|}\\
+	&\texttt{
+		% match
+		| \color{blue}'match'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'with'\color{black}, \{ "|", \color{RoyalPurple}expr\color{black}, '=>', \color{RoyalPurple}expr \color{black} \}
+		|}\\
+	&\texttt{
+		% if then else
+		| \color{blue}'if'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'then'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'else'\color{black}, \color{RoyalPurple}expr \color{black}
+		% equality
+		| \color{RoyalPurple}expr\color{black}, '==',
+		\color{RoyalPurple}expr \color{black}
+		|}\\
+	&\texttt{
+		% conjunction
+		| \color{RoyalPurple}expr\color{black}, \color{blue}'and'\color{black}, \color{RoyalPurple}expr \color{black}
+		% disjunction
+		| \color{RoyalPurple}expr\color{black}, \color{blue} 'or'\color{black}, \color{RoyalPurple}expr \color{black}
+		% negation
+		| \color{blue} 'not'\color{black}, \color{RoyalPurple}expr \color{black} 
+		|}\\
+	&\texttt{
+		% less
+		| \color{RoyalPurple}expr\color{black}, '<=', \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr\color{black}, '>=', \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr\color{black}, '<', \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr\color{black}, '>', \color{RoyalPurple}expr \color{black}
+		|}\\
+	&\texttt{
+		% list literal
+		| "["\color{RoyalPurple}expr\color{black}, \{",", \color{RoyalPurple}expr \color{black}\}"]"
+		% cons
+		| \color{RoyalPurple} expr\color{black}, ":", \color{RoyalPurple}expr \color{black}
+		% concatenation
+		| \color{RoyalPurple}expr\color{black}, '++', \color{RoyalPurple}expr \color{black}
+	}
+	\end{align*}
+	\section{Forcing continuation style}
+	Forcing the continuation style on the programmer is done by adding an implicit last argument
+	and changing the return type of all functions that are defined in the language.
+	For example, if a function is annotated with type \texttt{a -> b -> c},
+	then the actual type of the function is \texttt{a -> b -> (c -> d) -> d},
+	where the result type \texttt{d} is always generic - this is the continuation.
+	\section{Language details}
+	The language is mostly a fusion of OCaml and Haskell, with OCaml-style pattern matching and
+	Haskell-style pretty much everything else. The only exception are the boolean operators,
+	which are words (not, and, or, instead of the usual !, \&\&, ||), and the lambdas, which
+	use a dot (.) to separate the arguments from the body, and 3 different ways to start them:
+	the keyword 'fn' (similar to fun in OCaml), backslash (like in Haskell) or the Unicode lambda.
+	\section{Sample program}
+	\begin{lstlisting}[escapeinside={(*}{*)}]
+	type Bool = True | False;
+	type Maybe a = Just a | Nothing;
+	type Either e a = Left e | Right a;
+	
+	Int -> Int ::
+	fac n c =
+	  if n == 0
+	    then c 1
+		else fac (n - 1) ((*$\lambda$*)f . c (n * f));
+	
+	Int -> Int ::
+	fib n c =
+	  if n <= 1
+		then c 1
+		else fib (n - 1) ((*$\lambda$*)res . fib (n - 2) ((*$\lambda$*)res2 . c (res + res2)));
+	
+	Int -> Int -> Int ::
+	sum a b c = c (a + b);
+	
+	Int -> Int -> Int ::
+	max2 a b c = c (if a <= b then b else a);
+	
+	Int -> Int -> Int -> Int ::
+	max3 x y z =
+	  if x <= z
+		then max2 y z
+		else max2 x y;
+	\end{lstlisting}
+	\section{Points}
+	I plan to implement all the features mentioned in the task description required for 35 points except
+	for type synonyms, which are not .
 \end{document}

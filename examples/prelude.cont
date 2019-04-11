@@ -1,0 +1,7 @@
+# this file is loaded before all the input files by the interpreter and contains basic
+# definitions of standard library functions and types.
+
+type Bool = True | False;
+type Maybe a = Just a | Nothing;
+type Either e a = Left e | Right a;
+

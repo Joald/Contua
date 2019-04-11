@@ -19,8 +19,8 @@ typeTerm :: Parser Type
 typeTerm = choice
   [ parens type_
   , TList <$> brackets type_
-  , TPoly <$> identifier
-  , TCtor <$> typeName
+  , TVar <$> identifier
+  , TName <$> typeName
   ]
 
 type_ :: Parser Type
@@ -34,7 +34,7 @@ typeDecl =
   TypeDecl
     <$ keyword "type"
     <*> typeName
-    <*> many (TPoly <$> identifier)
+    <*> many (TVar <$> identifier)
     <* symbol "="
     <*> ((:) <$> typeVariant <*> many (symbol "|" *> typeVariant))
     <* symbol ";"

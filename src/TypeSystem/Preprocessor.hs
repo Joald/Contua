@@ -4,6 +4,8 @@ import TypeSystem.TypeDefs
 import Semantics.Builtins
 import Parser.TypeDefs
 
+-- TODO: check patterns in match before desugaring
+
 preprocess :: AST -> IAST
 preprocess (AST types fns) = IAST types $ map convertFn fns
   where
@@ -15,7 +17,7 @@ infixl 9 ^^$
 desugar :: Expr -> IExpr
 desugar (EVar x) = IEVar x
 desugar (EInt x) = ILit $ LInt x
-desugar (ETypeName x) = IEVar $ unTypeName x
+desugar (ETypeName x) = IEVar x
 desugar (EAdd e1 e2) = IEVar addName ^^$ desugar e1 ^^$ desugar e2
 desugar (ESub e1 e2) = IEVar subName ^^$ desugar e1 ^^$ desugar e2
 desugar (EMul e1 e2) = IEVar mulName ^^$ desugar e1 ^^$ desugar e2
@@ -34,4 +36,4 @@ desugar (ELet x e1 e2) = IELet x (desugar e1) $ desugar e2
 desugar (EIf b e1 e2) = IEApply (IEApply (IEVar ifteName ^^$ desugar b) $ desugar e1) $ desugar e2
 desugar (EMatch e pats) =
   let e' = desugar e
-    in foldr (\(pat, expr) -> IEApply $ IEVar ifteName ^^$ (IEVar matchesName ^^$ e' ^^$ desugar pat) ^^$ desugar expr) (ILit LError) pats
+    in foldr (\(pat, expr) -> IEApply $ IEVar ifteName ^^$ (IEVar matchesName ^^$ e' ^^$ IPat (desugar pat)) ^^$ desugar expr) (ILit LError) pats
