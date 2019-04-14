@@ -1,5 +1,3 @@
-Int -> Int ::
-succ x = x + 1;
-
+# this function is well typed in System F, not in Hindley-Milner
 Int ::
 one = (fn f. f succ (f 0)) (fn x. x);

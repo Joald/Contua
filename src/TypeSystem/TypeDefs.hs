@@ -75,6 +75,8 @@ data TypeSystemError =
   | UnificationError Type Type
   | OccursCheck Name Type
   | TooManyArgumentsError Type
+  | EntryPointNotFoundError
+  | MultipleEntryPointsFound
 
 instance Show TypeSystemError where
   show (KindError s) = "Kind error occured: " ++ s
@@ -83,6 +85,8 @@ instance Show TypeSystemError where
   show (UnificationError t1 t2) = "Cannot unify type " ++ show t1 ++ " with " ++ show t2
   show (OccursCheck n t) = "Occurs check: cannot construct infinite type " ++ n ++ " ~ " ++ show t
   show (TooManyArgumentsError t) = "Type " ++ show t ++ " is not a function type."
+  show EntryPointNotFoundError = "Cannot find the entry point of the program. Did you specify the `main` function?"
+  show MultipleEntryPointsFound = "Multiple main functions found."
 
 type TypeCheck a = ReaderT TypeEnv (StateT InferenceState (Except TypeSystemError)) a
 
@@ -90,7 +94,7 @@ newtype InferenceState = IState { counter :: Int }
 
 data TypeEnv = TypeEnv { typeDict :: Map Name Type, schemeDict :: Map Name Scheme } deriving (Show, Eq)
 
-data Scheme = ForAll { vars :: [Name], t :: Type} deriving (Eq)
+data Scheme = ForAll { vars :: [Name], t :: Type } deriving (Eq)
 
 instance Show Scheme where
   show (ForAll vars t) = (if null vars then "" else "∀" ++ unwords vars ++ " . ") ++ show t

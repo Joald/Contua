@@ -1,0 +1,9 @@
+# this will fail due to non-exhaustive patterns: the case where list has only one element is missing.
+# furthermore, even if we add the "h : _" case, it will cause a type error because
+# the "a" type variable cannot be unified with type "Maybe a" due to the occurs check.
+
+[a] -> Maybe a ::
+safeHead xs c = match xs with
+  | h : (Just x) : _ => c (Just h)
+  | h : _ => c (Just h)
+  | [] => c Nothing;

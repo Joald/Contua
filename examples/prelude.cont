@@ -5,3 +5,8 @@ type Bool = True | False;
 type Maybe a = Just a | Nothing;
 type Either e a = Left e | Right a;
 
+a -> a ::
+id x = x;
+
+Int -> Int ::
+succ x = x + 1;

@@ -21,3 +21,6 @@ max3 x y z =
   if x <= z
     then max2 y z
     else max2 x y;
+
+Int ::
+main = max3 1 2 3 id;

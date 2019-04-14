@@ -1,5 +1,3 @@
-# this will fail the pattern match checker due to different types in the first two branches.
-
 [a] -> Maybe a ::
 safeHead xs c = match xs with
   | h : (Just x) : _ => c (Just h)

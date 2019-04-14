@@ -47,7 +47,7 @@
 	% program
 	\texttt{program}  =\ & \texttt{\{ \color{gray}typeDecl \color{black} \}, \{ \color{red}funDecl \color{black} \}}\\
 	% funDecl
-	\texttt{\color{red}funDecl\color{black}} =\ & \texttt{\color{ForestGreen}type\color{black}, '::', id, \{ id \}, "=", \color{RoyalPurple}expr\color{black}}, ";"\\
+	\texttt{\color{red}funDecl\color{black}} =\ & \texttt{[\color{ForestGreen}type\color{black}, ":"], \color{ForestGreen}type\color{black}, '::', id, \{ id \}, "=", \color{RoyalPurple}expr\color{black}}, ";"\\
 	% typeDecl
 	\texttt{\color{gray}typeDecl\color{black}} =\ &\texttt{\color{blue}'type'\color{black}, ID, \{ id \}, "=", \color{RubineRed}typeCtor\color{black}, \{ "|", \color{RubineRed}typeCtor \color{black} \}}, ";"\\
 	% type
@@ -114,7 +114,7 @@
 		|}\\
 	&\texttt{
 		% list literal
-		| "["\color{RoyalPurple}expr\color{black}, \{",", \color{RoyalPurple}expr \color{black}\}"]"
+		| "[", \color{RoyalPurple}expr\color{black}, \{",", \color{RoyalPurple}expr \color{black}\}, "]"
 		% cons
 		| \color{RoyalPurple} expr\color{black}, ":", \color{RoyalPurple}expr \color{black}
 		% concatenation
@@ -126,44 +126,70 @@
 	and changing the return type of all functions that are defined in the language.
 	For example, if a function is annotated with type \texttt{a -> b -> c},
 	then the actual type of the function is \texttt{a -> b -> (c -> d) -> d},
-	where the result type \texttt{d} is always generic - this is the continuation.
+	where the result type \texttt{d} is either abstract or decided by an optional explicit annotation with the semicolon - this is the continuation.
+	The programmer must then write the function using said parameter and it is expected that 
+	the result of the function is passed to the continuation. The entry point to the program should be defined using a function with the name main which should be of type that can accept an identity continuation, and such continuation will be implicitly passed to it.
+	As such, the only exceptions to the continuation modification are the main function and builtins, which includes both functions defined directly in the interpreter that the operators will be desugared into and the prelude, which will be loaded with the file and written in Contua.
+	
 	\section{Language details}
 	The language is mostly a fusion of OCaml and Haskell, with OCaml-style pattern matching and
 	Haskell-style pretty much everything else. The only exception are the boolean operators,
-	which are words (not, and, or, instead of the usual !, \&\&, ||), and the lambdas, which
+	which are words (not, and, or, instead of the usual !, \&\&, $|$$|$), and the lambdas, which
 	use a dot (.) to separate the arguments from the body, and 3 different ways to start them:
 	the keyword 'fn' (similar to fun in OCaml), backslash (like in Haskell) or the Unicode lambda.
+	The language requires the programmer to specify the type of every top-level function declaration, however full type inference is still performed and the result is compared with the modified type of the function.
+	The language supports recursive polymorphic algebraic types and generic lists, both supporting 
+	unbounded pattern depth. The language does not allow for runtime errors, as there is no division operator and the type system will reject any program with non-exhaustive patterns in a match expression. The need for error checking is alleviated by the programmer being able to ignore the passed continuation and instead return a new continuation.
 	\section{Sample program}
 	\begin{lstlisting}[escapeinside={(*}{*)}]
 	type Bool = True | False;
 	type Maybe a = Just a | Nothing;
 	type Either e a = Left e | Right a;
 	
+	Int :
 	Int -> Int ::
 	fac n c =
 	  if n == 0
 	    then c 1
-		else fac (n - 1) ((*$\lambda$*)f . c (n * f));
+		else fac (n - 1) ((*$\lambda$*)f. c (n * f));
 	
+	Int :
 	Int -> Int ::
 	fib n c =
 	  if n <= 1
 		then c 1
-		else fib (n - 1) ((*$\lambda$*)res . fib (n - 2) ((*$\lambda$*)res2 . c (res + res2)));
+		else fib (n - 1) ((*$\lambda$*)res. fib (n - 2) ((*$\lambda$*)res2. c (res + res2)));
 	
-	Int -> Int -> Int ::
-	sum a b c = c (a + b);
 	
+	Int :
 	Int -> Int -> Int ::
 	max2 a b c = c (if a <= b then b else a);
 	
+	Int :
 	Int -> Int -> Int -> Int ::
 	max3 x y z =
 	  if x <= z
 		then max2 y z
 		else max2 x y;
+	
+	# Example of throwing an exception.
+	Maybe Int :
+	Int -> Int -> Int ::
+	div x y c = 
+	  if y == 0 
+	    then Nothing
+	    else safeDiv x y c;
+ 
+ 	Int -> Int -> Int ::
+ 	safeDiv x y c = 
+ 	  if x < y
+ 	    then c 0
+ 	    else safeDiv (x - y) y ((*$\lambda$*)rest. c (rest + 1));
+ 	  
+	(Int -> Int) -> Int ::
+	main = (*$\lambda$*)c. fib 10 ((*$\lambda$*)fi. fac 10 ((*$\lambda$*)fa. safeDiv fi fa ((*$\lambda$*)d. max3 fi fa (100 * d) c)));
 	\end{lstlisting}
 	\section{Points}
 	I plan to implement all the features mentioned in the task description required for 35 points except
-	for type synonyms, which are not .
+	for type synonyms, which are not necessary and runtime errors which will are not needed in the language, in particular everything already mentioned in the language details. It might be also worth considering to add a do notation like in haskell, but for continuations (it is visible in the main function that it could simplify code greatly), however it was a last-second consideration and if I find the time, I'll do that.
 \end{document}

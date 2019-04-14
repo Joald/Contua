@@ -1,2 +1,0 @@
-module TypeSystem.DeclarationChecker where
-

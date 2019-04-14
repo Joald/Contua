@@ -2,7 +2,7 @@ module Parser.TypeDefs where
 
 import Data.List (intercalate)
 
-data AST = AST [TypeDecl] [FunDecl] deriving (Show, Eq)
+data AST = AST { typeDecls :: [TypeDecl], funDecls :: [FunDecl] } deriving (Show, Eq)
 
 data FunDecl = FunDecl { fnType :: Type, fnName :: Name, fnArgs :: [Name], fnBody :: Expr } deriving (Eq)
 

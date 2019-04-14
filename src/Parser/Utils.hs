@@ -67,15 +67,18 @@ withPredicate f msg p = do
 keyword :: String -> Parser String
 keyword keyword = lexeme $ try $ string keyword <* notFollowedBy alphaNumChar
 
+underscored :: Parser Char -> Parser Char
+underscored = (<|> char '_')
+
 idWithFirst :: Parser Char -> Parser String
 idWithFirst letter =
   withPredicate
       (`notElem` keywords)
       "Expected identifier, got keyword."
-      (lexeme ((:) <$> letter <*> many alphaNumChar <?> "identifier"))
+      (lexeme ((:) <$> letter <*> many (underscored alphaNumChar) <?> "identifier"))
 
 identifier :: Parser String
-identifier = idWithFirst lowerChar
+identifier = idWithFirst $ underscored lowerChar
 
 typeName :: Parser String
-typeName = idWithFirst upperChar
+typeName = idWithFirst $ underscored upperChar

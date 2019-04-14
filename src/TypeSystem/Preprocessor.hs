@@ -4,7 +4,7 @@ import TypeSystem.TypeDefs
 import Semantics.Builtins
 import Parser.TypeDefs
 
--- TODO: check patterns in match before desugaring
+
 
 preprocess :: AST -> IAST
 preprocess (AST types fns) = IAST types $ map convertFn fns

@@ -43,19 +43,22 @@ freshTypeName =
      put . IState $ n + 1
      return . TVar $ "a" ++ show n
 
+typeMapFromDeclList :: [TypeDecl] -> Map Name TypeDecl
+typeMapFromDeclList list = Map.fromList $ map (\td -> (tdName td, td)) list
+
 doTypeChecking :: IAST -> TypeCheck IAST
 doTypeChecking ast@(IAST types fns) =
-  do kindEnv <- liftExcept KindError $ kindCheckIAST ast
-     let typeMap = Map.fromList $ map (\td -> let name = tdName td
-                                                in (name, (td, Map.lookup name kindEnv))) types
-     when (any (isNothing . snd) $ Map.elems typeMap) .
-       throwError $ KindError "Some type declaration(s) were not kind checked."
+  do liftExcept KindError $ kindCheckIAST ast
+     let typeMap = typeMapFromDeclList types
      fns <- mapM (\fn -> convertTypeToCont (ifnName fn) (ifnType fn) >>= (\t -> return fn {ifnType = t})) fns
-     let typeMap'  = Map.map (typeFromDecl . fst) typeMap
+     let typeMap'  = Map.map typeFromDecl typeMap
          ctorMap   = Map.fromList $ concatMap (\td -> map (pap (tvName, ForAll (tdArgs td) . foldr (^->^) (typeFromDecl td) . tvArgs)) $ tdVariants td) types
          schemeMap = Map.fromList $ map (\fd -> let t = ifnType fd
                                                   in (ifnName fd, ForAll (Set.toList $ fv t) t)) fns
-     local (const $ TypeEnv (Map.union typeMap' builtinTypes) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins]) $ typeCheckFunctions fns
+     main <- local (const $ TypeEnv (Map.union typeMap' builtinTypes) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins]) $ typeCheckFunctions fns
+     when (isNothing main) $ throwError EntryPointNotFoundError
+     traceM $ "Found type " ++ show (fromJust main) ++ "for the main function. unifying..."
+     unifyTypes intType (fromJust main)
      return ast
 
 genNoEnv :: Type -> Scheme
@@ -71,29 +74,33 @@ getArgTypes t _ = throwError $ TooManyArgumentsError t
 
 convertTypeToCont :: Name -> Type -> TypeCheck Type
 convertTypeToCont name t
-  | isBuiltin name = return t
+  | isBuiltin name || isPrelude name || tLength t == 0 = return t
   | otherwise = convertTypeToCont' t
     where
       convertTypeToCont' (TArrow t1 t2) = (t1 ^->^) <$> convertTypeToCont' t2
       convertTypeToCont' t = (\tn -> (t ^->^ tn) ^->^ tn) <$> freshTypeName
 
-typeCheckFunctions :: [IFnDecl] -> TypeCheck ()
-typeCheckFunctions [] = return ()
+typeCheckFunctions :: [IFnDecl] -> TypeCheck (Maybe Type)
+typeCheckFunctions [] = return Nothing
 typeCheckFunctions (fn:fns) =
-  do typeCheckFunction fn
-     typeCheckFunctions fns
+  do t <- typeCheckFunction fn
+     mt <- typeCheckFunctions fns
+     if | ifnName fn == "main" && isNothing mt -> return $ Just t
+        | ifnName fn == "main" -> throwError MultipleEntryPointsFound
+        | otherwise -> return mt
 
 isNotArrow :: Type -> Bool
 isNotArrow (_ `TArrow` _) = False
 isNotArrow _ = True
 
-typeCheckFunction :: IFnDecl -> TypeCheck ()
+typeCheckFunction :: IFnDecl -> TypeCheck Type
 typeCheckFunction (IFn t name args body) =
   do traceM ("NOW TYPE CHECKING: " ++ name ++ "...")
      (bodyType, argTypes) <- if null args then return (t, Map.empty) else getArgTypes t args
      traceM ("with bodyType " ++ show bodyType ++ " and arg types: " ++ show argTypes)
      (t', s) <- local (mapSchemeEnv $ Map.insert name (genNoEnv t) . Map.union argTypes) $ inferType body
      void (unifyTypes bodyType t')
+     return t'
 
 unifyTypes :: Type -> Type -> TypeCheck TypeSubst
 unifyTypes t1@(TArrow l1 r1) t2@(TArrow l2 r2) = trace ("unify types " ++ show t1 ++ " with " ++ show t2) $
@@ -122,6 +129,7 @@ unifyTypes (TName n) t = trace ("lookup type name " ++ n ++ " and unify with typ
 unifyTypes t (TName n) = trace ("lookup type name " ++ n ++ " and unify with type " ++ show t) $ lookupType n t
 unifyTypes TBottom _ = return nullSubst
 unifyTypes _ TBottom = return nullSubst
+unifyTypes (TPattern t1) (TPattern t2) = unifyTypes t1 t2
 unifyTypes t1 t2 = trace ("cannot unify " ++ show t1 ++ " with " ++ show t2) $ throwError $ UnificationError t1 t2
 
 bindType :: Name -> Type -> TypeCheck TypeSubst
@@ -187,18 +195,22 @@ inferType (IELet x e1 e2) = trace ("inferType let " ++ x ++ " = " ++ show e1 ++ 
      traceM $ "let body returned " ++ show (t2, s2)
 --     traceM $ "whole let will yield substitution " ++ show (s2 `compose` s1)
      traceM $ "inferred type " ++ show t2 ++ " for let " ++ x ++ " = " ++ show e1 ++ " in " ++ show e2 ++ ""
-     return (t2, s2 `compose` s1) -- TODO: think about composition order
+     return (t2, s2 `compose` s1)
 
 inferType (IEVar x) = trace ("inferType var " ++ x ) $
   do env <- ask
 --     traceM $ "looking up variable " ++ x ++ " in env " ++ show (schemeDict env)
      let mt = Map.lookup x $ schemeDict env
-     when (isNothing mt) . throwError $ UnboundVariableError x
-     t <- instantiateType $ fromJust mt
+         mt' = if isNothing mt
+                 then Map.lookup (makePrelude x) $ schemeDict env
+                 else mt
+     when (isNothing mt') . throwError $ UnboundVariableError x
+     t <- instantiateType $ fromJust mt'
      traceM $ "inferred type " ++ show t ++ " for var " ++ x
      return (t, nullSubst)
 
 inferType (ILit (LInt _)) = trace "inferType int literal" $ return (intType, nullSubst)
 inferType (ILit LEmptyList) = trace "inferType empty list literal" $ return (aListType, nullSubst)
 inferType (ILit LError) = trace "inferType error literal" $ return (TBottom, nullSubst)
--- TODO: pattern :))))
+inferType (IPat e) = (, nullSubst) . TPattern <$> freshTypeName
+-- TODO: pattern name visibility :))))

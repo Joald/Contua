@@ -17,8 +17,17 @@ builtinPrefix = "__contua_builtin_"
 makeBuiltin :: String -> BuiltinName
 makeBuiltin = (builtinPrefix ++)
 
-isBuiltin :: String -> Bool
+preludePrefix :: Name
+preludePrefix = "prelude."
+
+makePrelude :: Name -> Name
+makePrelude = (preludePrefix ++)
+
+isBuiltin, isPrelude :: Name -> Bool
 isBuiltin s = builtinPrefix `isPrefixOf` s
+isPrelude s = preludePrefix `isPrefixOf` s
+
+
 
 addName, subName, negName, mulName, consName, concName, andName, orName, eqName, leqName, notName, ifteName, matchesName :: BuiltinName
 addName = makeBuiltin "addition"
