@@ -4,22 +4,17 @@ module TypeSystem.KindSubstitutable where
 
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Set (Set, (\\))
+import Data.Set (Set)
 import qualified Data.Set as Set
 
 import Parser.TypeDefs
-import TypeSystem.TypeDefs
-
 
 newtype KindSubst = Subst { unSubst :: Map Name Kind } deriving (Eq, Show)
 
-instance Ord (KindSubst) where
-  s1 `compare` s2 = unSubst s1 `compare` unSubst s2
-
-instance Semigroup (KindSubst) where
+instance Semigroup KindSubst where
   (<>) = compose
 
-instance Monoid (KindSubst) where
+instance Monoid KindSubst where
   mempty = Subst Map.empty
 
 nullSubst :: KindSubst
@@ -50,7 +45,7 @@ instance KindSubstitutable Kind where
   apply subst k@(KUnknown x) = Map.findWithDefault k x (unSubst subst)
   apply subst (KArrow k1 k2) = KArrow (apply subst k1) (apply subst k2)
 
-instance KindSubstitutable a => KindSubstitutable ([a]) where
+instance KindSubstitutable a => KindSubstitutable [a] where
   fv = foldr (Set.union . fv) Set.empty
   apply = map . apply
 

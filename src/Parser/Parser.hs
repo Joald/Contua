@@ -5,18 +5,13 @@ module Parser.Parser
     , Parser
     ) where
 
-import Control.Applicative hiding (many, some)
-import Control.Monad
 import Text.Megaparsec hiding (State)
-import Data.List.NonEmpty
-
+import Data.Bifunctor (first)
 
 import Parser.Utils
 import Parser.TypeDefs
 import Parser.Expr
 import Parser.TypeDecls
-import Data.Bifunctor (first)
-import Data.Void (Void)
 
 
 {- | This is the Contua language, the parser part.

@@ -10,3 +10,6 @@ id x = x;
 
 Int -> Int ::
 succ x = x + 1;
+
+(a -> b) -> (b -> c) -> a -> c ::
+comp f g x = g (f x);

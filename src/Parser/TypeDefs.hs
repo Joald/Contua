@@ -61,8 +61,15 @@ data Type =
   | TApply Type Type
   | TBottom
   | TBuiltin Name
-  | TPattern Type
   deriving (Eq, Ord)
+
+typeArgs :: Type -> [Type]
+typeArgs (TArrow t1 t2) = t1 : typeArgs t2
+typeArgs _ = []
+
+typeBody :: Type -> Type
+typeBody (TArrow _ t) = typeBody t
+typeBody t = t
 
 tLength :: Type -> Int
 tLength (TArrow _ t) = 1 + tLength t
@@ -76,7 +83,6 @@ instance Show Type where
   show (TApply t1 t2) = show t1 ++ " " ++ show t2
   show TBottom = "⊥"
   show (TBuiltin name) = "builtin_type{" ++ name ++ "}"
-  show (TPattern t) = "pattern{" ++ show t ++ "}"
 
 showType :: Type -> String
 showType t@(TArrow _ _) = "(" ++ show t ++ ")"
@@ -94,13 +100,7 @@ binaryType, unaryType :: Type -> Type
 binaryType t = t ^->^ t ^->^ t
 unaryType t = t ^->^ t
 
-
-data Pattern =
-    Name
-  | PTApply Name Pattern
-  | PCons Pattern Pattern
-  | PList Pattern
-  deriving (Show, Eq)
+(^->^), (^$$^) :: Type -> Type -> Type
 
 infixr 8 ^->^
 (^->^) = TArrow
@@ -133,6 +133,16 @@ data Expr =
   | ELeq  Expr Expr
   deriving (Show, Eq)
 
+gatherArgs :: Expr -> [Expr]
+gatherArgs (EApply e1 e2) = gatherArgs e1 ++ [e2]
+gatherArgs _ = []
+
+leftmost :: Expr -> Expr
+leftmost (EApply e _) = leftmost e
+leftmost x = x
+
+
+(^&&^), (^||^), (^+^), (^-^), (^*^), (^$^), (^++^), (^:^), (^==^), (^<=^):: Expr -> Expr -> Expr
 (^&&^) = EAnd
 (^||^) = EOr
 (^+^) = EAdd

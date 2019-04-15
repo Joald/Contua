@@ -4,26 +4,27 @@ module TypeSystem.TypeSystem where
 
 import Parser.TypeDefs
 import Data.Map (Map)
-import Data.Set (Set, (\\))
+import Data.Set ((\\))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Except
-import Control.Monad.Writer
 
 import Data.Maybe
-import Data.Bifunctor
 
 import TypeSystem.TypeDefs
 import TypeSystem.KindChecker
 import TypeSystem.TypeSubstitutable
 import Semantics.Builtins
+import TypeSystem.BuiltinTypes
 import Utils
 import Debug.Trace (trace, traceM)
 
 -- | Type system is based on the Hindley-Milner algorithm as presented here:
 -- http://dev.stephendiehl.com/fun/006_hindley_milner.html
+
+type SchemeMap = Map Name Scheme
 
 typeCheck :: IAST -> Either TypeSystemError IAST
 typeCheck ast = runTypeCheck (doTypeChecking ast)
@@ -48,23 +49,23 @@ typeMapFromDeclList list = Map.fromList $ map (\td -> (tdName td, td)) list
 
 doTypeChecking :: IAST -> TypeCheck IAST
 doTypeChecking ast@(IAST types fns) =
-  do liftExcept KindError $ kindCheckIAST ast
+  do _ <- liftExcept KindError $ kindCheckIAST ast
      let typeMap = typeMapFromDeclList types
-     fns <- mapM (\fn -> convertTypeToCont (ifnName fn) (ifnType fn) >>= (\t -> return fn {ifnType = t})) fns
+     contFns <- mapM (\fn -> convertTypeToCont (ifnName fn) (ifnType fn) >>= (\t -> return fn {ifnType = t})) fns
      let typeMap'  = Map.map typeFromDecl typeMap
          ctorMap   = Map.fromList $ concatMap (\td -> map (pap (tvName, ForAll (tdArgs td) . foldr (^->^) (typeFromDecl td) . tvArgs)) $ tdVariants td) types
          schemeMap = Map.fromList $ map (\fd -> let t = ifnType fd
-                                                  in (ifnName fd, ForAll (Set.toList $ fv t) t)) fns
-     main <- local (const $ TypeEnv (Map.union typeMap' builtinTypes) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins]) $ typeCheckFunctions fns
+                                                  in (ifnName fd, ForAll (Set.toList $ fv t) t)) contFns
+     main <- local (const $ TypeEnv (Map.union typeMap' builtinTypes) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins]) $ typeCheckFunctions contFns
      when (isNothing main) $ throwError EntryPointNotFoundError
-     traceM $ "Found type " ++ show (fromJust main) ++ "for the main function. unifying..."
-     unifyTypes intType (fromJust main)
+     traceM $ "Found type " ++ show (fromJust main) ++ " for the main function."
+--     unifyTypes intType (fromJust main)
      return ast
 
 genNoEnv :: Type -> Scheme
 genNoEnv t = ForAll (Set.toList $ fv t) t
 
-getArgTypes :: Type -> [Name] -> TypeCheck (Type, Map Name Scheme)
+getArgTypes :: Type -> [Name] -> TypeCheck (Type, SchemeMap)
 getArgTypes (TArrow t1 t2) (n:ns) =
   do (tBody, rest) <- getArgTypes t2 ns
      return . (tBody,) $ Map.insert n (genNoEnv t1) rest
@@ -78,7 +79,7 @@ convertTypeToCont name t
   | otherwise = convertTypeToCont' t
     where
       convertTypeToCont' (TArrow t1 t2) = (t1 ^->^) <$> convertTypeToCont' t2
-      convertTypeToCont' t = (\tn -> (t ^->^ tn) ^->^ tn) <$> freshTypeName
+      convertTypeToCont' t' = (\tn -> (t' ^->^ tn) ^->^ tn) <$> freshTypeName
 
 typeCheckFunctions :: [IFnDecl] -> TypeCheck (Maybe Type)
 typeCheckFunctions [] = return Nothing
@@ -99,8 +100,8 @@ typeCheckFunction (IFn t name args body) =
      (bodyType, argTypes) <- if null args then return (t, Map.empty) else getArgTypes t args
      traceM ("with bodyType " ++ show bodyType ++ " and arg types: " ++ show argTypes)
      (t', s) <- local (mapSchemeEnv $ Map.insert name (genNoEnv t) . Map.union argTypes) $ inferType body
-     void (unifyTypes bodyType t')
-     return t'
+     s' <- unifyTypes (apply s bodyType) t'
+     return $ apply s' t'
 
 unifyTypes :: Type -> Type -> TypeCheck TypeSubst
 unifyTypes t1@(TArrow l1 r1) t2@(TArrow l2 r2) = trace ("unify types " ++ show t1 ++ " with " ++ show t2) $
@@ -129,7 +130,6 @@ unifyTypes (TName n) t = trace ("lookup type name " ++ n ++ " and unify with typ
 unifyTypes t (TName n) = trace ("lookup type name " ++ n ++ " and unify with type " ++ show t) $ lookupType n t
 unifyTypes TBottom _ = return nullSubst
 unifyTypes _ TBottom = return nullSubst
-unifyTypes (TPattern t1) (TPattern t2) = unifyTypes t1 t2
 unifyTypes t1 t2 = trace ("cannot unify " ++ show t1 ++ " with " ++ show t2) $ throwError $ UnificationError t1 t2
 
 bindType :: Name -> Type -> TypeCheck TypeSubst
@@ -162,7 +162,7 @@ instantiateType (ForAll vars t) =
 generalizeType :: Type -> TypeCheck Scheme
 generalizeType t = asks $ \env -> ForAll (Set.toList $ fv t \\ fv (schemeDict env)) t
 
-mapSchemeEnv :: (Map Name Scheme -> Map Name Scheme) -> TypeEnv -> TypeEnv
+mapSchemeEnv :: (SchemeMap -> SchemeMap) -> TypeEnv -> TypeEnv
 mapSchemeEnv f env = env { schemeDict = f $ schemeDict env }
 
 inferType :: IExpr -> TypeCheck (Type, TypeSubst)
@@ -211,6 +211,38 @@ inferType (IEVar x) = trace ("inferType var " ++ x ) $
 
 inferType (ILit (LInt _)) = trace "inferType int literal" $ return (intType, nullSubst)
 inferType (ILit LEmptyList) = trace "inferType empty list literal" $ return (aListType, nullSubst)
-inferType (ILit LError) = trace "inferType error literal" $ return (TBottom, nullSubst)
-inferType (IPat e) = (, nullSubst) . TPattern <$> freshTypeName
--- TODO: pattern name visibility :))))
+inferType (IMatch pats x results) =
+  do (t1, s1) <- inferType x
+     traceM $ "inferred type " ++ show t1 ++ " for matcher " ++ show x
+     sm <- mapM (\pat -> localWithSubst s1 $ checkPattern pat t1) pats
+     traceM $ "checked patterns " ++ unwords (map show pats) ++ "and got the following identifiers: " ++ unwords (map show sm)
+     (t2, s2) <- unzip <$> zipWithM (\sm' res -> local (mapSchemeEnv (Map.union sm')) $ localWithSubst s1 $ inferType res) sm results
+     let s3 = foldl1 compose s2
+     mapAdjacentM unifyTypes t2
+     return (head t2, s3 `compose` s1)
+
+checkPattern :: Pattern -> Type -> TypeCheck SchemeMap
+checkPattern (PLit LEmptyList) t = do
+  name <- freshTypeName
+  _ <- unifyTypes t (TList name)
+  return Map.empty
+checkPattern (PLit (LInt _)) t = unifyTypes t intType >> return Map.empty
+checkPattern (PVar x) t = Map.singleton x <$> generalizeType t
+checkPattern (PTVariant name args) t =
+  do
+    env <- ask
+    let ms = Map.lookup name $ schemeDict env
+    when (isNothing ms) . throwError $ UnboundVariableError name
+    let scheme = fromJust ms
+    t' <- instantiateType scheme
+    let tArgs = typeArgs t'
+    s <- unifyTypes t (typeBody t')
+    mconcat <$> zipWithM checkPattern args (map (apply s) tArgs)
+
+checkPattern (PCons x xs) t =
+  do t' <- freshTypeName
+     let tl = TList t'
+     s1 <- unifyTypes tl t
+     sm1 <- checkPattern x t'
+     sm2 <- checkPattern xs (apply s1 tl)
+     return $ sm1 `Map.union` sm2

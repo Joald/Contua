@@ -70,6 +70,6 @@ instance TypeSubstitutable Type where
   apply subst (TApply t1 t2) = TApply (apply subst t1) (apply subst t2)
   apply subst (TList t) = TList $ apply subst t
   apply subst t@(TVar n) = Map.findWithDefault t n (unSubst subst)
-  apply subst t = t
+  apply _ t = t
 
 

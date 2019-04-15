@@ -1,6 +1,5 @@
 module Parser.Expr where
 
-import Control.Monad
 import Control.Monad.Combinators.Expr
 import Text.Megaparsec
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -8,7 +7,6 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Parser.TypeDefs
 import Parser.Utils
 import Parser.TypeDecls
-import Data.List.NonEmpty (fromList)
 
 funDecl :: Parser FunDecl
 funDecl =

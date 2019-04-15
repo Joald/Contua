@@ -40,11 +40,6 @@ checkPatternsExp (EIf _ e1 e2) = checkPatternsExp e1 >> checkPatternsExp e2
 checkPatternsExp (EMatch e pats) = checkPatternsExp e >> checkExhaustiveness e (map fst pats)
 checkPatternsExp _ = return ()
 
-isListPattern :: Expr -> Bool
-isListPattern (EListLiteral _) = True
-isListPattern (ECons _ _) = True
-isListPattern _ = False
-
 checkExhaustiveness :: Expr -> [Expr] -> CoverageCheck ()
 checkExhaustiveness _ [] = throwError "An empty pattern list is non-exhaustive."
 checkExhaustiveness e list = mapM toCoverage list >>= foldM (><) NoCoverage >>= \res -> when (res /= Anything) $ throwError $ "Pattern group for expression " ++ show e ++ " is non-exhaustive."
@@ -54,17 +49,13 @@ toCoverage (EVar _) = return Anything
 toCoverage (EListLiteral list) = foldM (\a x -> flip SpecificFirstElem a <$> toCoverage x) EmptyList list
 toCoverage (ECons x xs) = toCoverage x >>= \case
                                              Anything -> AnyFirstElem <$> toCoverage xs
-                                             x -> SpecificFirstElem x <$> toCoverage xs
-toCoverage e@(EApply e1 e2) | ETypeName name <- leftmost e1 =
+                                             res -> SpecificFirstElem res <$> toCoverage xs
+toCoverage e@(EApply e1 _) | ETypeName name <- leftmost e1 =
   do
     tName <- findType name
     variantArgs <- mapM toCoverage $ gatherArgs e
     return $ Ctors tName $ Map.fromList [(name, variantArgs)]
-  where
-    leftmost (EApply e _) = leftmost e
-    leftmost x = x
-    gatherArgs (EApply e1 e2) = gatherArgs e1 ++ [e2]
-    gatherArgs x = []
+
 toCoverage (EInt _) = return ExactInt
 toCoverage (ETypeName name) = Ctors <$> findType name <*> pure (Map.singleton name [])
 toCoverage e = throwError $ "Cannot use expression " ++ show e ++ " in pattern matching."
@@ -131,13 +122,13 @@ AnyFirstElem x >< AnyFirstElem y = AnyFirstElem <$> x >< y
 AnyFirstElemOrEmpty x >< AnyFirstElem y = (\case
                                              Anything -> Anything
                                              z -> AnyFirstElemOrEmpty z) <$> x >< y
-l@(AnyFirstElem x) >< r@(AnyFirstElemOrEmpty y) = r >< l
+l@(AnyFirstElem _) >< r@(AnyFirstElemOrEmpty _) = r >< l
 
-l@(AnyFirstElem x) >< SpecificFirstElem _ y = l >< AnyFirstElem y
-SpecificFirstElem _ y >< r@(AnyFirstElem x) = r >< AnyFirstElem y
+l@(AnyFirstElem _) >< SpecificFirstElem _ y = l >< AnyFirstElem y
+SpecificFirstElem _ y >< r@(AnyFirstElem _) = r >< AnyFirstElem y
 
-l@(AnyFirstElem x) >< SpecificFirstElemOrEmpty _ y = l >< AnyFirstElemOrEmpty y
-SpecificFirstElemOrEmpty _ y >< r@(AnyFirstElem x) = r >< AnyFirstElem y
+l@(AnyFirstElem _) >< SpecificFirstElemOrEmpty _ y = l >< AnyFirstElemOrEmpty y
+SpecificFirstElemOrEmpty _ y >< r@(AnyFirstElem _) = r >< AnyFirstElemOrEmpty y
 
 -- Any first element or empty
 AnyFirstElemOrEmpty x >< AnyFirstElemOrEmpty y = AnyFirstElemOrEmpty <$> x >< y
@@ -189,3 +180,4 @@ mergeVariants x@((lName, lCoverage):xs) y@((rName, rCoverage):ys)
   | lName == rName = (:) <$> ((lName, ) <$> zipWithM (><) lCoverage rCoverage) <*> mergeVariants xs ys
   | lName < rName = ((lName, lCoverage):) <$> mergeVariants xs y
   | lName > rName = ((rName, rCoverage):) <$> mergeVariants x ys
+  | otherwise = error "this will never happen as other patterns are exhaustive yet ghc claims otherwise."

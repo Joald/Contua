@@ -14,9 +14,6 @@ sc_ x = L.space x (L.skipLineComment "#") (L.skipBlockComment "#{" "}#")
 sc :: Parser ()
 sc = sc_ space1
 
---scDecl :: Parser ()
---scDecl = sc_ $ space1 >> eol >> return ()
-
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
@@ -49,6 +46,7 @@ prefix name f = Prefix (f <$ symbol name)
 
 postfix name f = Postfix (f <$ symbol name)
 
+keywords :: [String]
 keywords = ["type", "fn", "let", "in", "match", "with", "if", "then", "else", "and", "or", "not"]
 
 withPredicate :: (a -> Bool) -- ^ The check to perform on parsed input
@@ -65,7 +63,7 @@ withPredicate f msg p = do
       fail msg
 
 keyword :: String -> Parser String
-keyword keyword = lexeme $ try $ string keyword <* notFollowedBy alphaNumChar
+keyword kw = lexeme $ try $ string kw <* notFollowedBy alphaNumChar
 
 underscored :: Parser Char -> Parser Char
 underscored = (<|> char '_')
@@ -73,9 +71,9 @@ underscored = (<|> char '_')
 idWithFirst :: Parser Char -> Parser String
 idWithFirst letter =
   withPredicate
-      (`notElem` keywords)
-      "Expected identifier, got keyword."
-      (lexeme ((:) <$> letter <*> many (underscored alphaNumChar) <?> "identifier"))
+    (`notElem` keywords)
+    "Expected identifier, got keyword."
+    (lexeme ((:) <$> letter <*> many (underscored alphaNumChar) <?> "identifier"))
 
 identifier :: Parser String
 identifier = idWithFirst $ underscored lowerChar

@@ -2,13 +2,12 @@
 module TypeSystem.TypeDefs where
 
 import Parser.TypeDefs
-import Control.Monad.RWS (RWST)
 import Control.Monad.Except (Except)
-import qualified Data.Map as Map
 import Data.Map (Map)
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.State (StateT)
 import Data.List (intercalate)
+import Semantics.Builtins
 
 -- | The I prefix stands for Internal (or intermediate :P)
 
@@ -29,9 +28,16 @@ data IExpr =
   | IEApply IExpr IExpr
   | IELet Name IExpr IExpr
   | IEVar Name
-  | IPat IExpr
+  | IMatch [Pattern] IExpr [IExpr]
   | ILit Lit
   deriving (Eq)
+
+data Pattern =
+    PVar Name
+  | PTVariant Name [Pattern]
+  | PCons Pattern Pattern
+  | PLit Lit
+  deriving (Show, Eq)
 
 showIExpr :: IExpr -> String
 showIExpr expr =
@@ -52,21 +58,22 @@ instance Show IExpr where
   show (IEAbstract name e) = "λ" ++ name ++ " . " ++ show e
   show (IEApply e1 e2) = showIExpr e1 ++ " " ++ showIExpr' e2
   show (IELet x e1 e2) = "let " ++ x ++ " = " ++ show e1 ++ " in " ++ show e2
-  show (IEVar x) = x
-  show (IPat e) = "pat{" ++ show e ++ "}"
+  show (IEVar x)
+    | isBuiltin x = drop (length builtinPrefix) x
+    | isPrelude x = drop (length preludePrefix) x
+    | otherwise   = x
   show (ILit lit) = show lit
+  show (IMatch pats x results) = "match " ++ show x ++ " with\n" ++ intercalate "\n" (zipWith (\pat res -> show pat ++ " => " ++ show res) pats results)
 
 
 data Lit =
     LInt Int
   | LEmptyList
-  | LError
   deriving (Eq)
 
 instance Show Lit where
   show (LInt x) = show x
   show LEmptyList = "[]"
-  show LError = "Error"
 
 data TypeSystemError =
     KindError String
@@ -94,7 +101,7 @@ newtype InferenceState = IState { counter :: Int }
 
 data TypeEnv = TypeEnv { typeDict :: Map Name Type, schemeDict :: Map Name Scheme } deriving (Show, Eq)
 
-data Scheme = ForAll { vars :: [Name], t :: Type } deriving (Eq)
+data Scheme = ForAll { schVars :: [Name], schT :: Type } deriving (Eq)
 
 instance Show Scheme where
   show (ForAll vars t) = (if null vars then "" else "∀" ++ unwords vars ++ " . ") ++ show t

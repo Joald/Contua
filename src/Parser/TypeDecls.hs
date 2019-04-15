@@ -1,13 +1,10 @@
 module Parser.TypeDecls where
 
-import Control.Monad
 import Text.Megaparsec
-
+import Control.Monad.Combinators.Expr
 
 import Parser.TypeDefs
 import Parser.Utils
-import Text.Megaparsec.Char
-import Control.Monad.Combinators.Expr
 
 typeOperatorTable :: [[Operator Parser Type]]
 typeOperatorTable =

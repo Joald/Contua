@@ -3,15 +3,15 @@ module TypeSystem.Preprocessor where
 import TypeSystem.TypeDefs
 import Semantics.Builtins
 import Parser.TypeDefs
-
-
+import Data.Bifunctor (first, second)
 
 preprocess :: AST -> IAST
 preprocess (AST types fns) = IAST types $ map convertFn fns
   where
-    convertFn (FunDecl fnType fnName fnArgs fnBody) = IFn fnType fnName fnArgs $ desugar fnBody
+    convertFn (FunDecl _fnType _fnName _fnArgs _fnBody) = IFn _fnType _fnName _fnArgs $ desugar _fnBody
 
 infixl 9 ^^$
+(^^$) :: IExpr -> IExpr -> IExpr
 (^^$) = IEApply
 
 desugar :: Expr -> IExpr
@@ -34,6 +34,18 @@ desugar (ENeg e) = IEVar negName ^^$ desugar e
 desugar (ENot e) = IEVar notName ^^$ desugar e
 desugar (ELet x e1 e2) = IELet x (desugar e1) $ desugar e2
 desugar (EIf b e1 e2) = IEApply (IEApply (IEVar ifteName ^^$ desugar b) $ desugar e1) $ desugar e2
-desugar (EMatch e pats) =
-  let e' = desugar e
-    in foldr (\(pat, expr) -> IEApply $ IEVar ifteName ^^$ (IEVar matchesName ^^$ e' ^^$ IPat (desugar pat)) ^^$ desugar expr) (ILit LError) pats
+desugar (EMatch e pats) = desugarMatch e pats
+
+desugarMatch :: Expr -> [(Expr, Expr)] -> IExpr
+desugarMatch e xs = uncurry (flip IMatch (desugar e)) (unzip $ map (first toPattern . second desugar) xs)
+
+toPattern :: Expr -> Pattern
+toPattern (EListLiteral l) = foldr (\x a -> PCons (toPattern x) a) (PLit LEmptyList) l
+toPattern (ECons x xs) = PCons (toPattern x) (toPattern xs)
+toPattern (EVar name) = PVar name
+toPattern e@(EApply e1 _) | ETypeName name <- leftmost e1 =
+  let args = gatherArgs e
+    in PTVariant name $ map toPattern args
+toPattern (EInt x) = PLit (LInt x)
+toPattern (ETypeName name) = PTVariant name []
+toPattern _ = error "This should never happen: it isn't your fault."

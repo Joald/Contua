@@ -10,11 +10,8 @@ import           Control.Monad.Except
 import           Control.Monad.Identity
 import           Control.Monad.Reader
 import           Control.Monad.State
-import           Control.Monad.Writer
 import           Data.Map                 (Map)
 import qualified Data.Map                 as Map
-import           Data.Set                 (Set)
-import qualified Data.Set                 as Set
 import           Utils
 
 type KindCheckT m a = ReaderT KindEnv (StateT KindState (ExceptT KindError m)) a
@@ -29,7 +26,6 @@ type KindEnv = Map Name Kind
 data KindError =
     KindOccursCheck Name Kind
   | CannotUnify Kind Kind
-  | KindApplicationError Type Kind Type Kind
 
 instance Show KindError where
   show (KindOccursCheck name k) = "Occurs check: cannot construct infinite kind " ++ name ++ " ~ " ++ show k
@@ -61,8 +57,8 @@ kindCheckType (TVar tName) =
 
 kindCheckType (TName tName) = kindCheckType $ TVar tName
 kindCheckType (TArrow t1 t2) =
-  do (k1, s1) <- kindCheckType t1
-     (k2, s2) <- local (apply s1) $ kindCheckType t2
+  do (_, s1) <- kindCheckType t1
+     (_, s2) <- local (apply s1) $ kindCheckType t2
      return (KStar, s2 `compose` s1)
 
 kindCheckType _ = return (KStar, nullSubst)
@@ -78,7 +74,7 @@ kindCheckVariants (TypeVariant _ args:tvs) =
      return $ subst' `compose` subst
 
 initArgKinds :: [Name] -> KindCheck (Kind, KindEnv, KindState)
-initArgKinds args = _initArgKinds args <$> (asks (KStar, , ) <*> get)
+initArgKinds _args = _initArgKinds _args <$> (asks (KStar, , ) <*> get)
   where
     _initArgKinds [] es = es
     _initArgKinds (arg:args) es =
@@ -87,10 +83,9 @@ initArgKinds args = _initArgKinds args <$> (asks (KStar, , ) <*> get)
        in (KArrow newName k, Map.insert arg newName env, st')
 
 kindCheckTypeDecl :: TypeDecl -> KindCheck Kind
-kindCheckTypeDecl (TypeDecl name args variants) =
-  do env <- ask
-     (kind, env', initState) <- initArgKinds (map (\(TVar x) -> x) args)
-     put initState
+kindCheckTypeDecl (TypeDecl _ args variants) =
+  do (kind, env', newState) <- initArgKinds (map (\(TVar x) -> x) args)
+     put newState
      subst <- local (const env') $ kindCheckVariants variants
      return $ apply subst kind
 

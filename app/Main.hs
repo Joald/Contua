@@ -1,22 +1,14 @@
-module Main where
+module Main (main) where
 
-import Parser.Parser
-import System.Environment
-import System.IO
-import Control.Monad
-import Parser.TypeDefs
-import Control.Monad.Trans.Maybe
-import TypeSystem.TypeDefs
-import TypeSystem.TypeSystem
-import TypeSystem.Preprocessor
-import TypeSystem.PatternChecker
-import Semantics.Builtins
-import Data.Bifunctor
-import Text.Megaparsec
-
-{- | Prints the contents of all files in the arguments. -}
-catMain :: IO ()
-catMain = getArgs >>= mapM readFile >>= mapM_ print
+import Parser.Parser (ParserError, parseProgram)
+import Parser.TypeDefs (fnName, AST(AST), typeDecls)
+import TypeSystem.PatternChecker (PatternError, runCoverageCheck, checkPatterns)
+import TypeSystem.TypeDefs (TypeSystemError)
+import System.Environment (getArgs)
+import Data.Bifunctor (first)
+import Semantics.Builtins (makePrelude)
+import TypeSystem.Preprocessor (preprocess)
+import TypeSystem.TypeSystem (typeMapFromDeclList, typeCheck)
 
 data ProgramError =
     ParseError ParserError
@@ -63,6 +55,3 @@ oneFileParser = do
 
 main :: IO ()
 main = oneFileParser
-
---f :: a -> (a -> b) -> b
---f x = x
