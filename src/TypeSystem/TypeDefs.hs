@@ -8,6 +8,7 @@ import Control.Monad.Reader (ReaderT)
 import Control.Monad.State (StateT)
 import Data.List (intercalate)
 import Semantics.Builtins
+import Data.Maybe (isJust, fromJust)
 
 -- | The I prefix stands for Internal (or intermediate :P)
 
@@ -18,10 +19,15 @@ instance Show IAST where
 
 type ITDecl = TypeDecl
 
-data IFnDecl = IFn { ifnType :: Type, ifnName :: Name, ifnArgs :: [Name], ifnBody :: IExpr } deriving (Eq)
+data IFnDecl = IFn { ifnContType :: Maybe Type, ifnType :: Maybe Type, ifnName :: Name, ifnArgs :: [Name], ifnBody :: IExpr } deriving (Eq)
 
 instance Show IFnDecl where
-  show (IFn t name args body) = show t ++ "::\n" ++ name ++ " " ++ unwords args ++ " = " ++ show body
+  show (IFn contType t name args body) =
+    (if isJust contType
+       then show (fromJust contType) ++ " :\n"
+       else "") ++ (if isJust t
+                     then show (fromJust t) ++ " ::\n"
+                     else "") ++ name ++ " " ++ unwords args ++ " = " ++ show body
 
 data IExpr =
     IEAbstract Name IExpr
@@ -63,7 +69,12 @@ instance Show IExpr where
     | isPrelude x = drop (length preludePrefix) x
     | otherwise   = x
   show (ILit lit) = show lit
-  show (IMatch pats x results) = "match " ++ show x ++ " with\n" ++ intercalate "\n" (zipWith (\pat res -> show pat ++ " => " ++ show res) pats results)
+  show (IMatch pats x results) =
+      "match "
+    ++ show x
+    ++ " with\n"
+    ++ intercalate "\n" (zipWith (\pat res ->
+      "  | " ++ show pat ++ " => " ++ show res) pats results)
 
 
 data Lit =

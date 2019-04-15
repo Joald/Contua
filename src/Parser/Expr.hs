@@ -7,17 +7,26 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Parser.TypeDefs
 import Parser.Utils
 import Parser.TypeDecls
+import Control.Monad (void, when)
+import Data.Maybe (isNothing, isJust)
+
+types :: Parser (Name -> [Name] -> Expr -> FunDecl)
+types = try $ do
+  t <- optional type_
+  t2 <- optional $ try $ symbol ":" *> type_ <* symbol "::"
+  when (isNothing t2 && isJust t) . void $ symbol "::"
+  return $ FunDecl t t2
 
 funDecl :: Parser FunDecl
-funDecl =
-  FunDecl
-    <$> type_
-    <* symbol "::"
-    <*> identifier -- function name
-    <*> many identifier -- args
-    <* symbol "="
-    <*> expr -- body
-    <* symbol ";"
+funDecl = (types >>= funDecl') <|> funDecl' (FunDecl Nothing Nothing)
+  where
+    funDecl' :: (Name -> [Name] -> Expr -> FunDecl) -> Parser FunDecl
+    funDecl' f = f
+                <$> identifier -- function name
+                <*> many identifier -- args
+                <*  symbol "="
+                <*> expr -- body
+                <*  symbol ";"
 
 
 lambda :: Parser Expr

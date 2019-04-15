@@ -7,10 +7,8 @@ safeHead xs c = match xs with
 
 (a -> b -> c) -> [a] -> [b] -> Maybe c ::
 joinSafeHeads f xs ys c = match TwoLists xs ys with
-  | TwoLists [] [] => Nothing
-  | TwoLists [] t  => Nothing
-  | TwoLists t []  => Nothing
-  | TwoLists (h1:_) (h2:_) => comp c Just (f h1 h2);
+  | TwoLists (h1:_) (h2:_) => comp c Just (f h1 h2)
+  | TwoLists _ _ => c Nothing;
 
 Maybe Int ::
 main = safeHead [2, 1, 3, 7] id;

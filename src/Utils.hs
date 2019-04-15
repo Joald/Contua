@@ -19,7 +19,6 @@ showException = withExcept show
 concatMapM :: (Traversable t, Monad m) => (a -> m [b]) -> t a -> m [b]
 concatMapM f xs = concat <$> mapM f xs
 
-
 pap :: (a -> b, a -> c) -> a -> (b, c)
 pap (f, g) x = (f x, g x)
 

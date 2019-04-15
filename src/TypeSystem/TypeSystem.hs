@@ -51,11 +51,13 @@ doTypeChecking :: IAST -> TypeCheck IAST
 doTypeChecking ast@(IAST types fns) =
   do _ <- liftExcept KindError $ kindCheckIAST ast
      let typeMap = typeMapFromDeclList types
-     contFns <- mapM (\fn -> convertTypeToCont (ifnName fn) (ifnType fn) >>= (\t -> return fn {ifnType = t})) fns
-     let typeMap'  = Map.map typeFromDecl typeMap
+         contFns = map (\fn -> fn { ifnType = convertTypeToCont (ifnName fn) <$> (ifnType fn) <*> (ifnContType fn) }) fns
+         typeMap'  = Map.map typeFromDecl typeMap
          ctorMap   = Map.fromList $ concatMap (\td -> map (pap (tvName, ForAll (tdArgs td) . foldr (^->^) (typeFromDecl td) . tvArgs)) $ tdVariants td) types
          schemeMap = Map.fromList $ map (\fd -> let t = ifnType fd
-                                                  in (ifnName fd, ForAll (Set.toList $ fv t) t)) contFns
+                                                  in (ifnName fd, if isJust t
+                                                                    then ForAll (Set.toList $ fv $ fromJust t) (fromJust t)
+                                                                    else ForAll ["a"] $ TVar "a")) contFns
      main <- local (const $ TypeEnv (Map.union typeMap' builtinTypes) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins]) $ typeCheckFunctions contFns
      when (isNothing main) $ throwError EntryPointNotFoundError
      traceM $ "Found type " ++ show (fromJust main) ++ " for the main function."
@@ -73,13 +75,13 @@ getArgTypes t [] = return (t, Map.empty)
 getArgTypes t _ = throwError $ TooManyArgumentsError t
 
 
-convertTypeToCont :: Name -> Type -> TypeCheck Type
-convertTypeToCont name t
-  | isBuiltin name || isPrelude name || tLength t == 0 = return t
-  | otherwise = convertTypeToCont' t
+convertTypeToCont :: Name -> Type -> Type -> Type
+convertTypeToCont name t contType
+  | isBuiltin name || isPrelude name || tLength t == 0 = t
+  | otherwise = convertTypeToCont' t contType
     where
-      convertTypeToCont' (TArrow t1 t2) = (t1 ^->^) <$> convertTypeToCont' t2
-      convertTypeToCont' t' = (\tn -> (t' ^->^ tn) ^->^ tn) <$> freshTypeName
+      convertTypeToCont' (TArrow t1 t2) ct = t1 ^->^ convertTypeToCont' t2 ct
+      convertTypeToCont' t' ct = (t' ^->^ ct) ^->^ ct
 
 typeCheckFunctions :: [IFnDecl] -> TypeCheck (Maybe Type)
 typeCheckFunctions [] = return Nothing
@@ -95,13 +97,18 @@ isNotArrow (_ `TArrow` _) = False
 isNotArrow _ = True
 
 typeCheckFunction :: IFnDecl -> TypeCheck Type
-typeCheckFunction (IFn t name args body) =
+typeCheckFunction (IFn _ (Just t) name args body) =
   do traceM ("NOW TYPE CHECKING: " ++ name ++ "...")
      (bodyType, argTypes) <- if null args then return (t, Map.empty) else getArgTypes t args
      traceM ("with bodyType " ++ show bodyType ++ " and arg types: " ++ show argTypes)
      (t', s) <- local (mapSchemeEnv $ Map.insert name (genNoEnv t) . Map.union argTypes) $ inferType body
      s' <- unifyTypes (apply s bodyType) t'
      return $ apply s' t'
+typeCheckFunction (IFn _ Nothing _ args body) =
+  do argTypes <- mapM (\arg -> (arg, ) <$> (freshTypeName >>= generalizeType)) args
+     (t', _) <- local (mapSchemeEnv $ Map.union (Map.fromList argTypes)) $ inferType body
+     return t'
+
 
 unifyTypes :: Type -> Type -> TypeCheck TypeSubst
 unifyTypes t1@(TArrow l1 r1) t2@(TArrow l2 r2) = trace ("unify types " ++ show t1 ++ " with " ++ show t2) $

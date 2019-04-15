@@ -21,7 +21,7 @@ typeTerm = choice
   ]
 
 type_ :: Parser Type
-type_ = makeExprParser typeTerm typeOperatorTable
+type_ = makeExprParser typeTerm typeOperatorTable <* notFollowedBy (symbol "=")
 
 typeVariant :: Parser TypeVariant
 typeVariant = TypeVariant <$> typeName <*> many typeTerm

@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Parser.Parser (ParserError, parseProgram)
+import Parser.Parser (ParserError, parseProgram, composeASTs)
 import Parser.TypeDefs (fnName, AST(AST), typeDecls)
 import TypeSystem.PatternChecker (PatternError, runCoverageCheck, checkPatterns)
 import TypeSystem.TypeDefs (TypeSystemError)
@@ -30,9 +30,6 @@ preludeFileName = "examples/prelude.cont"
 
 parseRealProgram :: String -> String -> Either ProgramError AST
 parseRealProgram name = first ParseError . parseProgram name
-
-composeASTs :: AST -> AST -> AST
-(AST types1 fns1) `composeASTs` (AST types2 fns2) = AST (types1 ++ types2) (fns1 ++ fns2)
 
 mapPrelude :: AST -> AST
 mapPrelude (AST types fns) = AST types $ map (\fn -> fn { fnName = makePrelude $ fnName fn }) fns

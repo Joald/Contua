@@ -13,6 +13,7 @@ import           Control.Monad.State
 import           Data.Map                 (Map)
 import qualified Data.Map                 as Map
 import           Utils
+import Data.Maybe (catMaybes)
 
 type KindCheckT m a = ReaderT KindEnv (StateT KindState (ExceptT KindError m)) a
 type KindCheck a = KindCheckT Identity a
@@ -105,7 +106,7 @@ monomorphise' = Map.map monomorphise
 doKindCheckIAST :: IAST -> KindCheck KindEnv
 doKindCheckIAST (IAST types fns) =
   do env <- kindCheckTypeDecls types
-     forM_ fns $ kindCheckType . ifnType
+     mapM_  kindCheckType $ catMaybes $ map ifnType fns ++ map ifnContType fns
      return env
 
 kindCheckIAST :: IAST -> Except String KindEnv

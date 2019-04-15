@@ -8,7 +8,7 @@ import Data.Bifunctor (first, second)
 preprocess :: AST -> IAST
 preprocess (AST types fns) = IAST types $ map convertFn fns
   where
-    convertFn (FunDecl _fnType _fnName _fnArgs _fnBody) = IFn _fnType _fnName _fnArgs $ desugar _fnBody
+    convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) = IFn _fnContType _fnType _fnName _fnArgs $ desugar _fnBody
 
 infixl 9 ^^$
 (^^$) :: IExpr -> IExpr -> IExpr

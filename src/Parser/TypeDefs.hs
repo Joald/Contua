@@ -4,12 +4,14 @@ import Data.List (intercalate)
 
 data AST = AST { typeDecls :: [TypeDecl], funDecls :: [FunDecl] } deriving (Show, Eq)
 
-data FunDecl = FunDecl { fnType :: Type, fnName :: Name, fnArgs :: [Name], fnBody :: Expr } deriving (Eq)
+data FunDecl = FunDecl { fnContType :: Maybe Type, fnType :: Maybe Type, fnName :: Name, fnArgs :: [Name], fnBody :: Expr } deriving (Eq)
 
 instance Show FunDecl where
-  show (FunDecl t name args body) =
-       show t
-    ++ " :: "
+  show (FunDecl contType t name args body) =
+      show contType
+    ++ " :\n"
+    ++ show t
+    ++ " ::\n"
     ++ name
     ++ if null args then "" else " "
     ++ unwords args

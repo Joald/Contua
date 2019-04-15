@@ -1,3 +1,4 @@
+# prelude.cont
 # this file is loaded before all the input files by the interpreter and contains basic
 # definitions of standard library functions and types.
 
@@ -13,3 +14,13 @@ succ x = x + 1;
 
 (a -> b) -> (b -> c) -> a -> c ::
 comp f g x = g (f x);
+
+(a -> b) -> [a] -> [b] ::
+map f xs = match xs with
+  | [] => []
+  | h:t => f h : map f t;
+
+(a -> (b -> c) -> c) -> [a] -> ([b] -> c) -> c ::
+contMap f xs c = match xs with
+  | [] => c []
+  | h:t => f h (\x . contMap f t (\rest . c (x : rest)));
