@@ -1,14 +1,14 @@
 module Main (main) where
 
 import Parser.Parser (ParserError, parseProgram, composeASTs)
-import Parser.TypeDefs (fnName, AST(AST), typeDecls)
+import Parser.TypeDefs (fnName, AST(AST), typeDecls, mapFromDeclList)
 import TypeSystem.PatternChecker (PatternError, runCoverageCheck, checkPatterns)
 import TypeSystem.TypeDefs (TypeSystemError)
 import System.Environment (getArgs)
 import Data.Bifunctor (first)
 import Semantics.Builtins (makePrelude)
 import TypeSystem.Preprocessor (preprocess)
-import TypeSystem.TypeSystem (mapFromDeclList, typeCheck)
+import TypeSystem.TypeSystem (typeCheck)
 import Semantics.Interpreter (interpretAST)
 import Debug.Trace (traceM)
 

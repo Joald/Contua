@@ -7,7 +7,6 @@ import Test.Hspec
 
 import TestUtils
 import TypeSystem.KindChecker
-import TypeSystem.TypeDefs
 import TypeSystem.Preprocessor
 import Parser.TypeDefs
 import Parser.Parser
@@ -17,6 +16,8 @@ import Parser.Utils
 import TypeSystem.KindSubstitutable
 import Control.Monad.Combinators.Expr (Operator, makeExprParser)
 import Control.Monad.Except (Except)
+import Data.Either (fromRight)
+import TypeSystem.TypeDefs
 
 spec :: Spec
 spec = do
@@ -44,7 +45,7 @@ kindCheckTypeTest :: String -> (Kind, KindSubst)
 kindCheckTypeTest = extract (KUnknown kindCheckFailedMessage, nullSubst) . kindCheckDefault . kindCheckType . parseType
 
 kindCheckIASTTest :: String -> Map Name Kind
-kindCheckIASTTest = extract' (`Map.singleton` KStar) . kindCheckIAST . preprocess . parseAST
+kindCheckIASTTest = extract' (`Map.singleton` KStar) . kindCheckIAST . fromRight (IAST [] []) . preprocess . parseAST
 
 kindOperatorTable :: [[Operator Parser Kind]]
 kindOperatorTable = [[binaryR "->" KArrow]]

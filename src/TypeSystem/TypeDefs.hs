@@ -8,7 +8,6 @@ import Control.Monad.Reader (ReaderT)
 import Control.Monad.State (StateT)
 import Data.List (intercalate)
 import Semantics.Builtins
-import Data.Maybe (isJust, fromJust)
 import Control.Monad.Writer (WriterT)
 
 -- | The I prefix stands for Internal (or intermediate :P)

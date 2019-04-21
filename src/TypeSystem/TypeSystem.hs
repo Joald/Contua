@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE FlexibleContexts #-}
-module TypeSystem.TypeSystem where
+module TypeSystem.TypeSystem (typeCheck) where
 
 import Parser.TypeDefs
 import Data.Map (Map)
@@ -35,13 +35,9 @@ traceM s = do
   prefix <- liftPrefix ask
   Debug.Trace.traceM $ prefix ++ s
 
-addPrefix :: MonadReader String m => String -> m a -> m a
-addPrefix s m = local (++ s) m
 
 -- | Type system is based on the Hindley-Milner algorithm as presented here:
 -- http://dev.stephendiehl.com/fun/006_hindley_milner.html
-
--- TODO: error when multiple args with same name
 
 type SchemeMap = Map Name Scheme
 
@@ -57,15 +53,18 @@ runTypeCheck tc = second fst $ runExcept (runReaderT (evalStateT (runReaderT (ru
 liftExcept :: (b -> TypeSystemError) -> Except b a -> TypeCheck a
 liftExcept err = lift . lift . lift . lift . withExcept err
 
+throwWhenMultipleEqual :: [Name] -> String -> TypeCheck ()
+throwWhenMultipleEqual xs context = when (length (nub xs) /= length xs) . throwError $ MultipleBindings (show . head $ xs L.\\ nub xs) context
+
+throwWhenNothing :: MonadError e m => Maybe a -> e -> m ()
+throwWhenNothing ma err = when (isNothing ma) $ throwError err
+
 freshTypeName :: TypeCheck Type
 freshTypeName =
   do IState n <- get
      put . IState $ n + 1
      traceM $ "getting fresh type " ++ show n ++ "!"
      return . TVar $ "a" ++ show n
-
-mapFromDeclList :: [TypeDecl] -> Map Name TypeDecl
-mapFromDeclList list = Map.fromList $ map (\td -> (tdName td, td)) list
 
 typesOfBuiltins :: TypeCheck (Map BuiltinName Scheme)
 typesOfBuiltins = Map.fromList . zip builtinNames . map generalizeBuiltin <$> mapM preprocessType builtinsTypes
@@ -76,24 +75,19 @@ preprocessType t = do
   names <- Subst . Map.fromList <$> forM fvt (\v -> (v, ) <$> freshTypeName)
   return $ apply names t
 
-
 preprocessFns :: [IFnDecl] -> TypeCheck [IFnDecl]
 preprocessFns = mapM $ _mapType >=> _mapContType
   where
-    _mapType fn     = maybe (return fn) (fmap (\t' -> fn { ifnType = Just t' }) . preprocessType) $ ifnType fn
-    _mapContType fn = maybe (return fn) (fmap (\ct' -> fn { ifnContType = Just ct' }) . preprocessType) $ ifnContType fn
+    _mapType fn     = maybe (return fn) (fmap (\t' -> fn { ifnType     = Just t' }) . preprocessType) $ ifnType fn
+    _mapContType fn = maybe (return fn) (fmap (\ct -> fn { ifnContType = Just ct }) . preprocessType) $ ifnContType fn
 
-declToScheme :: ITypeDecl -> [TypeVariant] -> {-TypeCheck-} [Scheme]
+declToScheme :: ITypeDecl -> [TypeVariant] -> [Scheme]
 declToScheme td = map $ ForAll (tdArgs td) . foldr (^->^) (typeFromDecl td) . tvArgs
-
-typeVar :: Type -> Name
-typeVar (TVar n) = n
-typeVar _ = error "type argument is not abstract: this should never happen"
 
 preprocessTypeDecl :: ITypeDecl -> TypeCheck ITypeDecl
 preprocessTypeDecl (TypeDecl name args variants) = do
   args' <- mapM preprocessType args
-  let argNames = map typeVar args
+  let argNames = map (\(TVar n) -> n) args
       subst = Subst . Map.fromList $ zip argNames args'
       variants' = map (preprocessVariant subst) variants
   return $ TypeDecl name args' variants'
@@ -109,7 +103,13 @@ getCtorTypes types = do
 
 doTypeChecking :: IAST -> TypeCheck ()
 doTypeChecking ast@(IAST types fns) =
-  do _ <- liftExcept KindError $ kindCheckIAST ast
+  do -- Check for name clashes.
+     let globalIdentifiers = map ifnName fns ++ concatMap (map tvName . tdVariants) types
+     throwWhenMultipleEqual globalIdentifiers "program"
+     let globalTypes = map tdName types ++ Map.keys builtinTypes
+     throwWhenMultipleEqual globalTypes "program"
+     -- Perform kind checking.
+     void(liftExcept KindError $ kindCheckIAST ast)
      ctorMap <- getCtorTypes types
      let  -- Apply continuation modification to functions with type annotations
         contFns  = map (\fn -> fn { ifnType = case ifnContType fn of
@@ -129,7 +129,7 @@ doTypeChecking ast@(IAST types fns) =
      typesOfBuiltins' <- typesOfBuiltins
      traceM $ "types of builtins: " ++ showMap typesOfBuiltins' ++ "\n"
      ((main, s), m) <- listen $ local (const $ TypeEnv (Map.union typeMap builtinTypes) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins']) $ typeCheckFunctions finalFns
-     when (isNothing main) $ throwError EntryPointNotFoundError
+     throwWhenNothing main EntryPointNotFoundError
      traceM $ "Found type " ++ show (fromJust main) ++ " for the main function."
      traceM $ "Final subst is:\n" ++ showMap (unSubst s)
      traceM $ "\n\nfinal types are:\n" ++ showMap (fix' (apply s) m)
@@ -146,53 +146,36 @@ typeCheckFunctions :: [IFnDecl] -> TypeCheck (Maybe Type, TypeSubst)
 typeCheckFunctions [] = return (Nothing, nullSubst)
 typeCheckFunctions (fn:fns) =
   do (t, s1) <- typeCheckFunction fn
-     (mt, s2) <- localWithSubst s1 $ typeCheckFunctions fns
+     s <- generalizeType t
+     traceM $ "Found type scheme " ++ show s ++ " for function " ++ ifnName fn
+     (mt, s2) <- local (mapSchemeEnv $ Map.insert (ifnName fn) s) . localWithSubst s1 $ typeCheckFunctions fns
      if | ifnName fn == "main" && isNothing mt -> return (Just t, s2 `compose` s1)
         | ifnName fn == "main" -> throwError MultipleEntryPointsFound
         | otherwise -> return (mt, s2 `compose` s1)
 
-isNotArrow :: Type -> Bool
-isNotArrow (_ `TArrow` _) = False
-isNotArrow _ = True
-
-addArgs :: [Name] -> Map Name Type -> Type -> TypeCheck Type
-addArgs (n:ns) m t =
-  do let mArgType = Map.lookup n m
-     when (isNothing mArgType) . throwError $ TooManyArgumentsError t
-     t' <- addArgs ns m t
-     let argType = fromJust mArgType
-     return $ argType ^->^ t'
-addArgs _ _ t = return t
-
-getArgTypes :: Type -> [Name] -> TypeCheck (Type, SchemeMap)
-getArgTypes (TArrow t1 t2) (n:ns) =
-  do (tBody, rest) <- getArgTypes t2 ns
-     return (tBody, Map.insert n (ForAll [] t1) rest)
-getArgTypes t [] = return (t, Map.empty)
-getArgTypes t _ = throwError $ TooManyArgumentsError t
 
 typeCheckFunction :: IFnDecl -> TypeCheck (Type, TypeSubst)
-typeCheckFunction fd@(IFnDecl _ (Just t) name args _) =
+typeCheckFunction (IFnDecl _ (Just t) name args body) =
   do traceM ("\nNOW TYPE CHECKING: " ++ name ++ "...")
-     (bodyType, argTypes) <- if null args then return (t, Map.empty) else getArgTypes t args
-     traceM ("with bodyType " ++ show bodyType ++ " and arg types: " ++ show argTypes)
-     (t', s) <- typeCheckFunction fd { ifnType = Nothing }--local (mapSchemeEnv $ Map.insert name (genNoEnv t) . Map.union argTypes) $ inferType body
-     traceM $ "\nFinished inferring: "
-     at <- mapMapM instantiateType argTypes
-     s' <- unifyTypes (apply s bodyType) t'
-     traceM $ "Found type " ++ show (apply s' t')
-     finalType <- addArgs args (apply s' at) (apply s' t')
-     tell $ Map.singleton name finalType
-     return (apply s' t', s')
-typeCheckFunction (IFnDecl _ Nothing _name args body) =
-  do traceM ("NOW INFERRING: " ++ _name ++ "...")
-     argTypes <- Map.fromList <$> mapM (\arg -> (arg, ) . ForAll [] <$> freshTypeName) args
-     (t', s) <- local (mapSchemeEnv $ Map.union argTypes) $ inferType body
-     traceM $ "Found type " ++ show t'
-     at <- mapMapM instantiateType argTypes
-     finalType <- addArgs args (apply s at) t'
-     tell $ Map.singleton _name finalType
-     return (t', s)
+     (funType, s) <- doTypeCheckFunction args body
+     traceM $ "Checker found type " ++ show funType
+     s' <- unifyTypes funType t
+     let s'' = s' `compose` s
+     tell $ Map.singleton name $ apply s'' funType
+     return (apply s'' funType, s'')
+typeCheckFunction (IFnDecl _ Nothing name args body) =
+  do traceM ("NOW INFERRING: " ++ name ++ "...")
+     (funType, s) <- doTypeCheckFunction args body
+     traceM $ "Inferrer found type " ++ show funType
+     tell $ Map.singleton name funType
+     return (funType, s)
+
+doTypeCheckFunction :: [Name] -> IExpr -> TypeCheck (Type, TypeSubst)
+doTypeCheckFunction args body =
+  do argTypes <- mapM (\arg -> (arg, ) . ForAll [] <$> freshTypeName) args
+     let argMap = Map.fromList argTypes
+     (t, s) <- local (mapSchemeEnv $ Map.union argMap) $ inferType body
+     return (foldr ((^->^) . apply s . schT . snd) (apply s t) argTypes, s)
 
 
 unifyTypes :: Type -> Type -> TypeCheck TypeSubst
@@ -243,12 +226,9 @@ lookupType n t
   | otherwise =
   do env <- ask
      let m = Map.lookup n $ typeDict env
-     when (isNothing m) . throwError $ UnboundTypeVariableError n t
+     throwWhenNothing m $ UnboundTypeVariableError n t
      traceM $ "Looked up " ++ n ++ " and found " ++ show (fromJust m)
      unifyTypes t $ fromJust m
-
-tr :: Show a => a -> a
-tr x = trace (show x) x
 
 localWithSubst :: TypeSubst -> TypeCheck a -> TypeCheck a
 localWithSubst s = local (\env -> env { schemeDict = apply s $ schemeDict env })
@@ -302,7 +282,7 @@ inferType (IEVar x) = trace ("inferType var " ++ x ) $
          mt' = if isNothing mt
                  then Map.lookup (makePrelude x) $ schemeDict env
                  else mt
-     when (isNothing mt') . throwError $ UnboundVariableError x
+     throwWhenNothing mt' $ UnboundVariableError x
      t <- instantiateType $ fromJust mt'
      traceM $ "inferred type " ++ show t ++ " for var " ++ x
      return (t, nullSubst)
@@ -332,18 +312,17 @@ checkPattern (PLit (LInt _)) t = (Map.empty, ) <$> unifyTypes t intType
 checkPattern (PVar x) t | x /= "_" = return (Map.singleton x $ ForAll [] t, nullSubst)
 checkPattern (PVar _) _ = return (Map.empty, nullSubst)
 checkPattern p@(PTVariant name args) t =
-  do
-    env <- ask
-    let ms = Map.lookup name $ schemeDict env
-    when (isNothing ms) . throwError $ UnboundVariableError name
-    let scheme = fromJust ms
-    t' <- instantiateType scheme
-    let tArgs = typeArgs t'
-    s <- unifyTypes t (typeBody t')
-    (maps, substs) <- unzip <$> zipWithM checkPattern args (map (apply s) tArgs)
-    let names = concatMap Map.keys maps
-    when (length (nub names) /= length names) . throwError $ MultipleBindings (head $ names L.\\ nub names) (show p)
-    return (mconcat maps, foldl compose nullSubst substs)
+  do env <- ask
+     let ms = Map.lookup name $ schemeDict env
+     throwWhenNothing ms $ UnboundVariableError name
+     let scheme = fromJust ms
+     t' <- instantiateType scheme
+     let tArgs = typeArgs t'
+     s <- unifyTypes t (typeBody t')
+     (maps, substs) <- unzip <$> zipWithM checkPattern args (map (apply s) tArgs)
+     let names = concatMap Map.keys maps
+     throwWhenMultipleEqual names (show p)
+     return (mconcat maps, foldl compose nullSubst substs)
 
 checkPattern (PCons x xs) t =
   do t' <- freshTypeName

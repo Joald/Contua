@@ -11,9 +11,7 @@ import           Utils
 
 leTest :: MonadReader (Map Int Int) m => Int -> m Int
 leTest 1 = fromMaybe (-2137) . Map.lookup 1 <$> ask
-leTest x = do
-  env <- ask
-  localEnv 1 (x + 1) $ leTest 1
+leTest x = localEnv 1 (x + 1) $ leTest 1
 
 
 spec :: Spec

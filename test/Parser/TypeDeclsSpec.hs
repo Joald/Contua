@@ -7,8 +7,6 @@ import Text.Megaparsec
 
 import Parser.TypeDefs
 import Parser.TypeDecls
-import Parser.Expr
-import Parser.Parser
 import TestUtils
 
 spec :: Spec
@@ -16,6 +14,7 @@ spec = do
   typeParserTest
   declarationParserTest
 
+typeParserTest :: SpecWith ()
 typeParserTest = describe "Type parser" $ do
   it "parses type constructors" $ do
     shouldParseType "Abcds" $ TName "Abcds"
@@ -36,7 +35,7 @@ typeParserTest = describe "Type parser" $ do
     shouldParseType "[Int]" $ TList $ TName "Int"
     shouldParseType "[a -> Int]" $ TList $ TVar "a" ^->^ TName "Int"
 
-
+declarationParserTest :: SpecWith ()
 declarationParserTest = describe "Declaration parser" $ do
   it "parses type declarations" $ do
     shouldParseTypeDecl "type R = R Rational;" $ TypeDecl "R" [] [TypeVariant "R" [TName "Rational"]]
@@ -46,6 +45,6 @@ declarationParserTest = describe "Declaration parser" $ do
     shouldParseTypeDecl "type X a b = Y (a -> b) | Z (b -> a);" $ TypeDecl "X" [TVar "a", TVar "b"] [TypeVariant "Y" [TVar "a" ^->^ TVar "b"], TypeVariant "Z" [TVar "b" ^->^ TVar "a"]]
     parse typeDecl "" `shouldFailOn` "type X a b = Y a -> b;" --err 18 (utok '-' <> etok '(' <> etok '|' <> eeof <> etoks "identifier" <> "typename")
   it "parses function declarations" $ do
-    shouldParseFunDecl "(b -> c) -> (b -> c) :: f a b = a b;" $ FunDecl ((TVar "b" ^->^ TVar "c") ^->^ TVar "b" ^->^ TVar "c") "f" ["a", "b"] $ EVar "a" ^$^ EVar "b"
-    shouldParseFunDecl "m (b -> c) -> m b -> Evald (m c) :: f x y = Evald ((getOut x) y);" $ FunDecl (TVar "m" ^$$^ (TVar "b" ^->^ TVar "c") ^->^ TVar "m" ^$$^ TVar "b" ^->^ TName "Evald" ^$$^ (TVar "m" ^$$^ TVar "c")) "f" ["x", "y"] $ ETypeName "Evald" ^$^ ((EVar "getOut" ^$^ EVar "x") ^$^ EVar "y")
+    shouldParseFunDecl "(b -> c) -> (b -> c) :: f a b = a b;" $ FunDecl Nothing (Just $ (TVar "b" ^->^ TVar "c") ^->^ TVar "b" ^->^ TVar "c") "f" ["a", "b"] $ EVar "a" ^$^ EVar "b"
+    shouldParseFunDecl "m (b -> c) -> m b -> Evald (m c) :: f x y = Evald ((getOut x) y);" $ FunDecl Nothing (Just $ TVar "m" ^$$^ (TVar "b" ^->^ TVar "c") ^->^ TVar "m" ^$$^ TVar "b" ^->^ TName "Evald" ^$$^ (TVar "m" ^$$^ TVar "c")) "f" ["x", "y"] $ ETypeName "Evald" ^$^ ((EVar "getOut" ^$^ EVar "x") ^$^ EVar "y")
 

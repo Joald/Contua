@@ -10,7 +10,7 @@ import Control.Monad.Except (Except, throwError, runExcept)
 import Control.Monad (when)
 
 import Utils
-import Control.Applicative (liftA2, liftA)
+import Control.Applicative (liftA2)
 
 preprocess :: AST -> Either String IAST
 preprocess (AST types fns) = liftA2 IAST (runExcept $ mapM unContTypes types) . pure $ map convertFn fns
@@ -61,7 +61,7 @@ type UnCont a = Except String a
 
 
 unContTypes :: TypeDecl -> UnCont ITypeDecl
-unContTypes td@(TypeDecl {tdVariants, ..}) = (\vs -> td { tdVariants = vs }) <$> mapM unContTypeVariant tdVariants
+unContTypes td @ TypeDecl {tdVariants, ..} = (\vs -> td { tdVariants = vs }) <$> mapM unContTypeVariant tdVariants
 
 unContTypeVariant :: TypeVariant -> UnCont TypeVariant
 unContTypeVariant (TypeVariant name args) = TypeVariant name <$> mapM unContType args
@@ -73,5 +73,5 @@ unContType (TCont (Just tc) t) = do
   return $ foldl1 (^->^) $ args ++ [body ^->^ tc, tc]
 unContType (TArrow t1 t2) = liftA2 TArrow (unContType t1) (unContType t2)
 unContType (TApply t1 t2) = liftA2 TApply (unContType t1) (unContType t2)
-unContType (TList t) = liftA TList (unContType t)
+unContType (TList t) = fmap TList (unContType t)
 unContType t = return t

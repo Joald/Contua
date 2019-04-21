@@ -8,7 +8,7 @@ import Parser.TypeDefs
 import Parser.Utils
 import Parser.TypeDecls
 import Control.Monad (void, when)
-import Data.Maybe (isNothing, isJust, fromMaybe)
+import Data.Maybe (isNothing, isJust)
 
 types :: Parser (Name -> [Name] -> Expr -> FunDecl)
 types = try $ do
@@ -19,15 +19,12 @@ types = try $ do
 
 funDecl :: Parser FunDecl
 funDecl = (types >>= funDecl') <|> funDecl' (FunDecl Nothing Nothing)
-  where
-    funDecl' :: (Name -> [Name] -> Expr -> FunDecl) -> Parser FunDecl
-    funDecl' f = f
+  where funDecl' f = f
                 <$> identifier -- function name
                 <*> many identifier -- args
                 <*  symbol "="
                 <*> expr -- body
                 <*  symbol ";"
-
 
 lambda :: Parser Expr
 lambda =

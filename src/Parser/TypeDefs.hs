@@ -1,7 +1,8 @@
 module Parser.TypeDefs where
 
 import Data.List (intercalate)
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 data AST = AST { typeDecls :: [TypeDecl], funDecls :: [FunDecl] } deriving (Eq)
 
@@ -10,6 +11,9 @@ instance Show AST where
     intercalate "\n\n" $ map show ts ++ map show fns
 
 data FunDecl = FunDecl { fnContType :: Maybe Type, fnType :: Maybe Type, fnName :: Name, fnArgs :: [Name], fnBody :: Expr } deriving (Eq)
+
+mapFromDeclList :: [TypeDecl] -> Map Name TypeDecl
+mapFromDeclList list = Map.fromList $ map (\td -> (tdName td, td)) list
 
 instance Show FunDecl where
   show (FunDecl contType t name args body) =
@@ -90,6 +94,7 @@ instance Show Type where
   show (TApply t1 t2) = show t1 ++ " " ++ show t2
   show TBottom = "⊥"
   show (TBuiltin name) = "" ++ name ++ ""
+  show (TCont tc t) = show t ++ " with continuation " ++ show tc
 
 showType :: Type -> String
 showType t@(TArrow _ _) = "(" ++ show t ++ ")"
