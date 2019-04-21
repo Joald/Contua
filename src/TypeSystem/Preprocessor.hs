@@ -1,14 +1,21 @@
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
 module TypeSystem.Preprocessor where
 
 import TypeSystem.TypeDefs
 import Semantics.Builtins
 import Parser.TypeDefs
 import Data.Bifunctor (first, second)
+import Control.Monad.Except (Except, throwError, runExcept)
+import Control.Monad (when)
 
-preprocess :: AST -> IAST
-preprocess (AST types fns) = IAST types $ map convertFn fns
+import Utils
+import Control.Applicative (liftA2, liftA)
+
+preprocess :: AST -> Either String IAST
+preprocess (AST types fns) = liftA2 IAST (runExcept $ mapM unContTypes types) . pure $ map convertFn fns
   where
-    convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) = IFn _fnContType _fnType _fnName _fnArgs $ desugar _fnBody
+    convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) = IFnDecl _fnContType _fnType _fnName _fnArgs $ desugar _fnBody
 
 infixl 9 ^^$
 (^^$) :: IExpr -> IExpr -> IExpr
@@ -37,7 +44,7 @@ desugar (EIf b e1 e2) = IEApply (IEApply (IEVar ifteName ^^$ desugar b) $ desuga
 desugar (EMatch e pats) = desugarMatch e pats
 
 desugarMatch :: Expr -> [(Expr, Expr)] -> IExpr
-desugarMatch e xs = uncurry (flip IMatch (desugar e)) (unzip $ map (first toPattern . second desugar) xs)
+desugarMatch e xs = uncurry (flip IMatch $ desugar e) . unzip . flip map xs $ first toPattern . second desugar
 
 toPattern :: Expr -> Pattern
 toPattern (EListLiteral l) = foldr (\x a -> PCons (toPattern x) a) (PLit LEmptyList) l
@@ -48,4 +55,23 @@ toPattern e@(EApply e1 _) | ETypeName name <- leftmost e1 =
     in PTVariant name $ map toPattern args
 toPattern (EInt x) = PLit (LInt x)
 toPattern (ETypeName name) = PTVariant name []
-toPattern _ = error "This should never happen: it isn't your fault."
+toPattern _ = error "This should never happen: it's a bug on our side. Sorry!"
+
+type UnCont a = Except String a
+
+
+unContTypes :: TypeDecl -> UnCont ITypeDecl
+unContTypes td@(TypeDecl {tdVariants, ..}) = (\vs -> td { tdVariants = vs }) <$> mapM unContTypeVariant tdVariants
+
+unContTypeVariant :: TypeVariant -> UnCont TypeVariant
+unContTypeVariant (TypeVariant name args) = TypeVariant name <$> mapM unContType args
+
+unContType :: Type -> UnCont Type
+unContType (TCont (Just tc) t) = do
+  let (args, body) = pap (typeArgs, typeBody) t
+  when (null args) . throwError $ "Cannot add continuation to non-function type " ++ show t
+  return $ foldl1 (^->^) $ args ++ [body ^->^ tc, tc]
+unContType (TArrow t1 t2) = liftA2 TArrow (unContType t1) (unContType t2)
+unContType (TApply t1 t2) = liftA2 TApply (unContType t1) (unContType t2)
+unContType (TList t) = liftA TList (unContType t)
+unContType t = return t

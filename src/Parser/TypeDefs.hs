@@ -1,20 +1,22 @@
 module Parser.TypeDefs where
 
 import Data.List (intercalate)
+import Data.Maybe (fromJust, fromMaybe)
 
-data AST = AST { typeDecls :: [TypeDecl], funDecls :: [FunDecl] } deriving (Show, Eq)
+data AST = AST { typeDecls :: [TypeDecl], funDecls :: [FunDecl] } deriving (Eq)
+
+instance Show AST where
+  show (AST ts fns) =
+    intercalate "\n\n" $ map show ts ++ map show fns
 
 data FunDecl = FunDecl { fnContType :: Maybe Type, fnType :: Maybe Type, fnName :: Name, fnArgs :: [Name], fnBody :: Expr } deriving (Eq)
 
 instance Show FunDecl where
   show (FunDecl contType t name args body) =
-      show contType
-    ++ " :\n"
-    ++ show t
-    ++ " ::\n"
+      maybe "" ((++ " :\n") . show) contType
+    ++ maybe "" ((++ " ::\n") . show) t
     ++ name
-    ++ if null args then "" else " "
-    ++ unwords args
+    ++ concatMap (" "++) args
     ++ " = "
     ++ show body
 
@@ -63,6 +65,7 @@ data Type =
   | TApply Type Type
   | TBottom
   | TBuiltin Name
+  | TCont (Maybe Type) Type
   deriving (Eq, Ord)
 
 typeArgs :: Type -> [Type]
@@ -78,13 +81,15 @@ tLength (TArrow _ t) = 1 + tLength t
 tLength _ = 0
 
 instance Show Type where
-  show (TName name) = "name{" ++ name ++ "}"
-  show (TVar name) = "var{" ++ name ++ "}"
+--  show (TName name) = "name{" ++ name ++ "}"
+  show (TName name) = "" ++ name ++ ""
+--  show (TVar name) = "var{" ++ name ++ "}"
+  show (TVar name) = "" ++ name ++ ""
   show (TList t) = "[" ++ show t ++ "]"
   show (TArrow t1 t2) = showType t1 ++ " -> " ++ show t2
   show (TApply t1 t2) = show t1 ++ " " ++ show t2
   show TBottom = "⊥"
-  show (TBuiltin name) = "builtin_type{" ++ name ++ "}"
+  show (TBuiltin name) = "" ++ name ++ ""
 
 showType :: Type -> String
 showType t@(TArrow _ _) = "(" ++ show t ++ ")"

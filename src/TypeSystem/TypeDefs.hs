@@ -9,25 +9,24 @@ import Control.Monad.State (StateT)
 import Data.List (intercalate)
 import Semantics.Builtins
 import Data.Maybe (isJust, fromJust)
+import Control.Monad.Writer (WriterT)
 
 -- | The I prefix stands for Internal (or intermediate :P)
 
-data IAST = IAST [ITDecl] [IFnDecl] deriving (Eq)
+data IAST = IAST [ITypeDecl] [IFnDecl] deriving (Eq)
 
 instance Show IAST where
-  show (IAST tDecls fnDecls) = intercalate "\n" $ map show tDecls ++ map show fnDecls
+  show (IAST tDecls fnDecls) = intercalate "\n\n" $ map show tDecls ++ map show fnDecls
 
-type ITDecl = TypeDecl
+type ITypeDecl = TypeDecl
 
-data IFnDecl = IFn { ifnContType :: Maybe Type, ifnType :: Maybe Type, ifnName :: Name, ifnArgs :: [Name], ifnBody :: IExpr } deriving (Eq)
+data IFnDecl = IFnDecl { ifnContType :: Maybe Type, ifnType :: Maybe Type, ifnName :: Name, ifnArgs :: [Name], ifnBody :: IExpr } deriving (Eq)
 
 instance Show IFnDecl where
-  show (IFn contType t name args body) =
-    (if isJust contType
-       then show (fromJust contType) ++ " :\n"
-       else "") ++ (if isJust t
-                     then show (fromJust t) ++ " ::\n"
-                     else "") ++ name ++ " " ++ unwords args ++ " = " ++ show body
+  show (IFnDecl contType t name args body) =
+    maybe "" ((++ " :\n") . show) contType
+    ++ maybe "" ((++ " ::\n") . show) t
+    ++ name ++ (if null args then "" else " ") ++ unwords args ++ " = " ++ show body
 
 data IExpr =
     IEAbstract Name IExpr
@@ -43,7 +42,18 @@ data Pattern =
   | PTVariant Name [Pattern]
   | PCons Pattern Pattern
   | PLit Lit
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance Show Pattern where
+  show (PVar name) = name
+  show (PTVariant name pats) = name ++ " " ++ unwords (map showPattern pats)
+  show (PCons h t) = show h ++ ":" ++ show t
+  show (PLit l) = show l
+
+showPattern :: Pattern -> String
+showPattern (PVar name) = name
+showPattern (PLit l) = show l
+showPattern t = "(" ++ show t ++ ")"
 
 showIExpr :: IExpr -> String
 showIExpr expr =
@@ -86,6 +96,8 @@ instance Show Lit where
   show (LInt x) = show x
   show LEmptyList = "[]"
 
+type Context = String
+
 data TypeSystemError =
     KindError String
   | UnboundTypeVariableError Name Type
@@ -93,6 +105,7 @@ data TypeSystemError =
   | UnificationError Type Type
   | OccursCheck Name Type
   | TooManyArgumentsError Type
+  | MultipleBindings Name Context
   | EntryPointNotFoundError
   | MultipleEntryPointsFound
 
@@ -103,10 +116,11 @@ instance Show TypeSystemError where
   show (UnificationError t1 t2) = "Cannot unify type " ++ show t1 ++ " with " ++ show t2
   show (OccursCheck n t) = "Occurs check: cannot construct infinite type " ++ n ++ " ~ " ++ show t
   show (TooManyArgumentsError t) = "Type " ++ show t ++ " is not a function type."
+  show (MultipleBindings name context) = "Multiple bindings of identifier " ++ name ++ " in " ++ context
   show EntryPointNotFoundError = "Cannot find the entry point of the program. Did you specify the `main` function?"
   show MultipleEntryPointsFound = "Multiple main functions found."
 
-type TypeCheck a = ReaderT TypeEnv (StateT InferenceState (Except TypeSystemError)) a
+type TypeCheck a = WriterT (Map Name Type) (ReaderT TypeEnv (StateT InferenceState (ReaderT String (Except TypeSystemError)))) a
 
 newtype InferenceState = IState { counter :: Int }
 

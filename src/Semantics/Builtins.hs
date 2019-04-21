@@ -36,3 +36,19 @@ notName = makeBuiltin "logical_not"
 eqName = makeBuiltin "equality"
 leqName = makeBuiltin "less_than_or_equal"
 ifteName = makeBuiltin "if_then_else"
+
+builtinNames :: [BuiltinName]
+builtinNames =
+  [ addName
+  , subName
+  , negName
+  , mulName
+  , consName
+  , concName
+  , andName
+  , orName
+  , notName
+  , eqName
+  , leqName
+  , ifteName
+  ]

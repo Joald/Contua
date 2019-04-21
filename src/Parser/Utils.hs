@@ -25,6 +25,8 @@ parens = symbol "(" `between` symbol ")"
 
 brackets :: Parser a -> Parser a
 brackets = symbol "[" `between` symbol "]"
+braces :: Parser a -> Parser a
+braces = symbol "{" `between` symbol "}"
 
 op :: String -> Parser String
 op n = lexeme $ try $ string n <* notFollowedBy opChar

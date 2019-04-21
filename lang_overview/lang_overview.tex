@@ -46,15 +46,15 @@
 	% program
 	\texttt{program}  =\ & \texttt{\{ \color{gray}typeDecl \color{black} | \color{red}funDecl \color{black} \}}\\
 	% funDecl
-	\texttt{\color{red}funDecl\color{black}} =\ & \texttt{[\color{ForestGreen}type\color{black}, ":"], [\color{ForestGreen}type\color{black}, '::'], id, \{ id \}, "=", \color{RoyalPurple}expr\color{black}}, ";"\\
+	\texttt{\color{red}funDecl\color{black}} =\ & \texttt{[\color{ForestGreen}type \color{black} ":"] [\color{ForestGreen}type \color{black} '::'] id \{ id \} "=" \color{RoyalPurple}expr \color{black}} ";"\\
 	% typeDecl
-	\texttt{\color{gray}typeDecl\color{black}} =\ &\texttt{\color{blue}'type'\color{black}, ID, \{ id \}, "=", \color{RubineRed}typeCtor\color{black}, \{ "|", \color{RubineRed}typeCtor \color{black} \}}, ";"\\
+	\texttt{\color{gray}typeDecl\color{black}} =\ &\texttt{\color{blue}'type' \color{black} ID \{ id \} "=" \color{RubineRed}typeCtor \color{black} \{ "|" \color{RubineRed}typeCtor \color{black} \}} ";"\\
 	% type
-	\texttt{\color{ForestGreen}type\color{black}} =\ &\texttt{\color{CadetBlue}basicType \color{black} | (\color{ForestGreen}type\color{black}, \{ '->', \color{ForestGreen}type \color{black} \}) | "(", \color{ForestGreen}type\color{black}, ")"}\\
+	\texttt{\color{ForestGreen}type \color{black}} =\ &\texttt{\color{CadetBlue}basicType \color{black} | (\color{ForestGreen}type \color{black} \{ '->' \color{ForestGreen}type \color{black} \}) | "(" \color{ForestGreen}type \color{black} ")" | "@\{" \color{ForestGreen}type \color{black} "\}(" \color{ForestGreen}type \color{black} ")"}\\
 	% basicType
-	\texttt{\color{CadetBlue}basicType} =\ &	\texttt{\color{RubineRed}typeCtor \color{black}| id | "[", id, "]"}\\
+	\texttt{\color{CadetBlue}basicType} =\ &	\texttt{\color{RubineRed}typeCtor \color{black}| id | "[" id "]"}\\
 	% typeCtor
-	\texttt{\color{RubineRed}typeCtor\color{black}} =\ & \texttt{ID, \{ \color{ForestGreen}type \color{black} \}}\\
+	\texttt{\color{RubineRed}typeCtor\color{black}} =\ & \texttt{ID \{ \color{ForestGreen}type \color{black} \}}\\
 	% function
 	% \texttt{\color{brown}function\color{black}} =\ & \texttt{}\\
 	% expr
@@ -64,60 +64,60 @@
 		% type ctors
 		| ID
 		% +
-		| \color{RoyalPurple}expr\color{black}, "+", \color{RoyalPurple}expr \color{black} 
+		| \color{RoyalPurple}expr \color{black} "+" \color{RoyalPurple}expr \color{black} 
 		% -
-		| \color{RoyalPurple}expr\color{black}, "-", \color{RoyalPurple}expr \color{black} 
+		| \color{RoyalPurple}expr \color{black} "-" \color{RoyalPurple}expr \color{black} 
 		% *
-		| \color{RoyalPurple}expr\color{black}, "*", \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr \color{black} "*" \color{RoyalPurple}expr \color{black}
 		% - unary
-		| "-", \color{RoyalPurple}expr \color{black}
+		| "-" \color{RoyalPurple}expr \color{black}
 		|}\\
 	&\texttt{
 		% ()
-		| "(", \color{RoyalPurple}expr\color{black}, ")" 
+		| "(" \color{RoyalPurple}expr \color{black} ")" 
 		% application
-		| \color{RoyalPurple}expr\color{black}, \color{RoyalPurple}expr \color{black} 
+		| \color{RoyalPurple}expr \color{black} \color{RoyalPurple}expr \color{black} 
 		% lambda
-		| (\color{blue}'fn'\color{black} | "\char`\\" | "$\lambda$"), \{ id \}, ".", \color{RoyalPurple}expr \color{black}
+		| (\color{blue}'fn' \color{black} | "\char`\\" | "$\lambda$") \{ id \} "." \color{RoyalPurple}expr \color{black}
 		|}\\
 	&\texttt{
 		% let in
-		| \color{blue}'let'\color{black}, 
-		\color{RoyalPurple}expr \color{black}, "=",	\color{RoyalPurple}expr \color{black},	 \color{blue}'in'\color{black}, \color{RoyalPurple}expr \color{black} 
+		| \color{blue}'let' \color{black} 
+		\color{RoyalPurple}expr \color{black} "=" \color{RoyalPurple}expr \color{black}	 \color{blue}'in' \color{black} \color{RoyalPurple}expr \color{black} 
 		|}\\
 	&\texttt{
 		% match
-		| \color{blue}'match'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'with'\color{black}, \{ "|", \color{RoyalPurple}expr\color{black}, '=>', \color{RoyalPurple}expr \color{black} \}
+		| \color{blue}'match' \color{black} \color{RoyalPurple}expr \color{black} \color{blue}'with' \color{black} \{ "|" \color{RoyalPurple}expr \color{black} '=>' \color{RoyalPurple}expr \color{black} \}
 		|}\\
 	&\texttt{
 		% if then else
-		| \color{blue}'if'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'then'\color{black}, \color{RoyalPurple}expr\color{black}, \color{blue}'else'\color{black}, \color{RoyalPurple}expr \color{black}
+		| \color{blue}'if' \color{black} \color{RoyalPurple}expr \color{black} \color{blue}'then' \color{black} \color{RoyalPurple}expr \color{black} \color{blue}'else' \color{black} \color{RoyalPurple}expr \color{black}
 		% equality
-		| \color{RoyalPurple}expr\color{black}, '==',
+		| \color{RoyalPurple}expr \color{black} '=='
 		\color{RoyalPurple}expr \color{black}
 		|}\\
 	&\texttt{
 		% conjunction
-		| \color{RoyalPurple}expr\color{black}, \color{blue}'and'\color{black}, \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr \color{black} \color{blue}'and' \color{black} \color{RoyalPurple}expr \color{black}
 		% disjunction
-		| \color{RoyalPurple}expr\color{black}, \color{blue} 'or'\color{black}, \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr \color{black} \color{blue} 'or' \color{black} \color{RoyalPurple}expr \color{black}
 		% negation
-		| \color{blue} 'not'\color{black}, \color{RoyalPurple}expr \color{black} 
+		| \color{blue} 'not' \color{black} \color{RoyalPurple}expr \color{black} 
 		|}\\
 	&\texttt{
 		% less
-		| \color{RoyalPurple}expr\color{black}, '<=', \color{RoyalPurple}expr \color{black}
-		| \color{RoyalPurple}expr\color{black}, '>=', \color{RoyalPurple}expr \color{black}
-		| \color{RoyalPurple}expr\color{black}, '<', \color{RoyalPurple}expr \color{black}
-		| \color{RoyalPurple}expr\color{black}, '>', \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr \color{black} '<=' \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr \color{black} '>=' \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr \color{black} '<' \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr \color{black} '>' \color{RoyalPurple}expr \color{black}
 		|}\\
 	&\texttt{
 		% list literal
-		| "[", \color{RoyalPurple}expr\color{black}, \{",", \color{RoyalPurple}expr \color{black}\}, "]"
+		| "[" \color{RoyalPurple}expr \color{black} \{"," \color{RoyalPurple}expr \color{black}\} "]"
 		% cons
-		| \color{RoyalPurple} expr\color{black}, ":", \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple} expr \color{black} ":" \color{RoyalPurple}expr \color{black}
 		% concatenation
-		| \color{RoyalPurple}expr\color{black}, '++', \color{RoyalPurple}expr \color{black}
+		| \color{RoyalPurple}expr \color{black} '++' \color{RoyalPurple}expr \color{black}
 	}
 	\end{align*}
 	\section{Forcing continuation style}
@@ -128,8 +128,7 @@
 	where the result type \texttt{d} is either abstract or decided by an optional explicit annotation with the semicolon - this is the continuation.
 	The programmer must then write the function using said parameter and it is expected that 
 	the result of the function is passed to the continuation. The entry point to the program should be defined using a function with the name main which should be of type that can accept an identity continuation, and such continuation will be implicitly passed to it.
-	As such, the only exceptions to the continuation modification are the main function and builtins, which includes both functions defined directly in the interpreter that the operators will be desugared into and the prelude, which will be loaded with the file and written in Contua.
-	
+	As such, the only exceptions to the continuation modification are the main function and builtins, which includes both functions defined directly in the interpreter that the operators will be desugared into and the prelude, which will be loaded with the file and written in Contua.	
 	\section{Language details}
 	The language is mostly a fusion of OCaml and Haskell, with OCaml-style pattern matching and
 	Haskell-style pretty much everything else. The only exception are the boolean operators,

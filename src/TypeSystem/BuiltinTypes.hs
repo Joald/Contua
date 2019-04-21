@@ -6,27 +6,27 @@ import Data.Map (Map)
 
 import TypeSystem.TypeDefs
 import TypeSystem.TypeSubstitutable (fv)
-import Semantics.Builtins
 import Parser.TypeDefs
 
 
 generalizeBuiltin :: Type -> Scheme
 generalizeBuiltin t = ForAll (Set.toList $ fv t) t
 
-typesOfBuiltins :: Map BuiltinName Scheme
-typesOfBuiltins = Map.map generalizeBuiltin $ Map.fromList
-  [ (addName, binaryType intType)
-  , (subName, binaryType intType)
-  , (negName, unaryType intType)
-  , (mulName, binaryType intType)
-  , (consName, aType ^->^ aListType ^->^ aListType)
-  , (concName, aListType ^->^ aListType ^->^ aListType)
-  , (andName, binaryType boolType)
-  , (orName, binaryType boolType)
-  , (notName, unaryType boolType)
-  , (eqName, aType ^->^ aType ^->^ boolType)
-  , (leqName, intType ^->^ intType ^->^ boolType)
-  , (ifteName, boolType ^->^ aType ^->^ aType ^->^ aType)
+
+builtinsTypes :: [Type]
+builtinsTypes =
+  [ binaryType intType -- addName
+  , binaryType intType -- subName
+  , unaryType intType -- negName
+  , binaryType intType -- mulName
+  , aType ^->^ aListType ^->^ aListType -- consName
+  , aListType ^->^ aListType ^->^ aListType -- concName
+  , binaryType boolType -- andName
+  , binaryType boolType -- orName
+  , unaryType boolType -- notName
+  , aType ^->^ aType ^->^ boolType -- eqName
+  , intType ^->^ intType ^->^ boolType -- leqName
+  , boolType ^->^ aType ^->^ aType ^->^ aType -- ifteName
   ]
 
 builtinTypes :: Map Name Type

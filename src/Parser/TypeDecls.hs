@@ -18,6 +18,7 @@ typeTerm = choice
   , TList <$> brackets type_
   , TVar <$> identifier
   , TName <$> typeName
+  , TCont <$ symbol "@" <*> optional (braces type_) <*> parens type_
   ]
 
 type_ :: Parser Type

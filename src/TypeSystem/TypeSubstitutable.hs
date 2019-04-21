@@ -14,17 +14,8 @@ import Debug.Trace (trace)
 
 newtype TypeSubst = Subst { unSubst :: Map Name Type } deriving (Eq, Show)
 
-instance Ord TypeSubst where
-  s1 `compare` s2 = unSubst s1 `compare` unSubst s2
-
-instance Semigroup TypeSubst where
-  (<>) = compose
-
-instance Monoid TypeSubst where
-  mempty = Subst Map.empty
-
 nullSubst :: TypeSubst
-nullSubst = mempty
+nullSubst = Subst Map.empty
 
 singletonSubst :: Name -> Type -> TypeSubst
 singletonSubst name = Subst . Map.singleton name
@@ -65,7 +56,7 @@ instance TypeSubstitutable Type where
   fv (TName _)      = Set.empty
   fv (TBuiltin _)   = Set.empty
   fv t              = trace ("PALISIEKURWA " ++ show t) Set.empty
-  -- TODO : patterns
+
   apply subst (TArrow t1 t2) = TArrow (apply subst t1) (apply subst t2)
   apply subst (TApply t1 t2) = TApply (apply subst t1) (apply subst t2)
   apply subst (TList t) = TList $ apply subst t

@@ -1,14 +1,20 @@
 type TwoLists a b = TwoLists [a] [b];
 
-[a] -> Maybe a ::
-safeHead xs c = match xs with
-  | h : _ => c (Just h)
-  | [] => c Nothing;
+#[a] -> Maybe a ::
+#safeHead xs c = match xs with
+#  | h : _ => c (Just h)
+#  | [] => c Nothing;
 
-(a -> b -> c) -> [a] -> [b] -> Maybe c ::
+d :
+(a -> b -> (c -> d) -> d) -> [a] -> [b] -> Maybe c ::
 joinSafeHeads f xs ys c = match TwoLists xs ys with
-  | TwoLists (h1:_) (h2:_) => comp c Just (f h1 h2)
+  | TwoLists (h1:_) (h2:_) => f h1 h2 (\x.c (Just x))
   | TwoLists _ _ => c Nothing;
 
+add x y c = c (x + y);
+
 Maybe Int ::
-main = safeHead [2, 1, 3, 7] id;
+main = joinSafeHeads add [2, 1, 3, 7] [4, 2, 0] id;
+
+
+sub = add 1 2;

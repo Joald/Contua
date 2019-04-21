@@ -8,14 +8,14 @@ import Parser.TypeDefs
 import Parser.Utils
 import Parser.TypeDecls
 import Control.Monad (void, when)
-import Data.Maybe (isNothing, isJust)
+import Data.Maybe (isNothing, isJust, fromMaybe)
 
 types :: Parser (Name -> [Name] -> Expr -> FunDecl)
 types = try $ do
   t <- optional type_
   t2 <- optional $ try $ symbol ":" *> type_ <* symbol "::"
   when (isNothing t2 && isJust t) . void $ symbol "::"
-  return $ FunDecl t t2
+  return $ if isNothing t2 then FunDecl Nothing t else FunDecl t t2
 
 funDecl :: Parser FunDecl
 funDecl = (types >>= funDecl') <|> funDecl' (FunDecl Nothing Nothing)
