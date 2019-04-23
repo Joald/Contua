@@ -1,0 +1,2 @@
+Type error occured:
+Cannot find the entry point of the program. Did you specify the `main` function?

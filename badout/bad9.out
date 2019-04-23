@@ -1,0 +1,2 @@
+Type error occured:
+Kind error occured: Cannot unify kind * with kind * -> *

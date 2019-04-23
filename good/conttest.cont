@@ -23,4 +23,4 @@ max3 x y z =
     else max2 x y;
 
 Int ::
-main = max3 1 2 3 id;
+main = max3 1 2 3;

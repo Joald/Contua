@@ -1,0 +1,20 @@
+# this program loops, thus demonstrating that the language is strictly evaluated.
+
+c = 1 : c;
+
+Int -> [a] -> [a] ::
+drop x l c = match x with
+| 0 => c l
+| _ => match l with
+       | []  => c []
+       | _:t => drop (x - 1) t c;
+
+[a] :
+Int -> [a] -> [a] ::
+take x l c = match x with
+| 0 => c []
+| _ => match l with
+       | []  => []
+       | h:t => take (x - 1) t (\res . c (h : res));
+
+main = take 3 c;

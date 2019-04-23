@@ -14,6 +14,7 @@ import           Data.Map                 (Map)
 import qualified Data.Map                 as Map
 import           Utils
 import Data.Maybe (catMaybes)
+import Debug.Trace (traceM)
 
 type KindCheckT m a = ReaderT KindEnv (StateT KindState (ExceptT KindError m)) a
 type KindCheck a = KindCheckT Identity a
@@ -105,12 +106,17 @@ monomorphise' = Map.map monomorphise
 
 doKindCheckIAST :: IAST -> KindCheck KindEnv
 doKindCheckIAST (IAST types fns) =
-  do env <- kindCheckTypeDecls types
-     mapM_  kindCheckType $ catMaybes $ map ifnType fns ++ map ifnContType fns
+  do env <- monomorphise' <$> kindCheckTypeDecls types
+     traceM $ "\n\nKind check of IAST:\n" ++ showList' types ++ "\n" ++ showList' fns
+     traceM $ "THIS IS THE ENV:\n" ++ showMap env
+     x <- local (const env) $ mapM kindCheckType $ catMaybes $ map ifnType fns ++ map ifnContType fns
+     traceM $ "THIS IS THE FINAL KINDCHECK:\n" ++ showMap (Map.fromList x)
+     s <- local (const env) $ foldAdjacentM unifyKinds compose nullSubst $ map fst x ++ [KStar]
+     traceM $ "THIS IS AFTER UNIFICATION:\n" ++ showMap (unSubst s)
      return env
 
 kindCheckIAST :: IAST -> Except String KindEnv
-kindCheckIAST ast = showException $ monomorphise' <$> runKindCheck Map.empty initState (doKindCheckIAST ast)
+kindCheckIAST ast = showException $ runKindCheck Map.empty initState (doKindCheckIAST ast)
 
 -- | Kind Substitution Solver
 

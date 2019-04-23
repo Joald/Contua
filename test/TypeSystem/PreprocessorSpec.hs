@@ -14,4 +14,4 @@ desugarerTest :: SpecWith ()
 desugarerTest = describe "Desugarer" $
   it "desugars expressions" $ do
     desugar (EVar "a" ^+^ EVar "b") `shouldBe` (IEVar addName ^^$ IEVar "a" ^^$ IEVar "b")
-    desugar (EMatch (EVar "x") [(EInt 1, EInt 10), (EInt 2, EInt 20)]) `shouldBe` (IMatch [PLit $ LInt 1, PLit $ LInt 2] (IEVar "x") [ILit $ LInt 10, ILit $ LInt 20])
+    desugar (EMatch (EVar "x") [(EInt 1, EInt 10), (EInt 2, EInt 20)]) `shouldBe` IMatch [PLit $ LInt 1, PLit $ LInt 2] (IEVar "x") [ILit $ LInt 10, ILit $ LInt 20]

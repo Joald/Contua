@@ -1,0 +1,3 @@
+# multiple top-level identifiers with the same name
+main = const 1;
+main = const 3;

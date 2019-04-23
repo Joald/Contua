@@ -1,77 +1,84 @@
 module Semantics.Interpreter where
 
-import Parser.TypeDefs
 import TypeSystem.TypeDefs
 import Data.Foldable (find)
 import qualified Data.Map as Map
 import Control.Monad.Reader
 import Data.Maybe (fromJust, fromMaybe)
 import Semantics.Builtins
-import TypeSystem.BuiltinTypes
+import Semantics.InterpreterUtils
 import Semantics.TypeDefs
 import Debug.Trace
+import Data.List (intercalate)
+import Utils
 
-interpretAST :: IAST -> Value
-interpretAST (IAST types fns) =
+interpretAST :: IAST -> IO Value
+interpretAST (IAST types fns) = trace "\n\n======\nNow interpreting...\n======\n" $ do
   let Just main = find ((== "main") . ifnName) fns
-      env = initEnv fns <> initCtors types <> getBuiltins
-    in runReader (eval $ ifnBody main) env
+      env = preprocessEnv $ initFns fns <> initCtors types <> getBuiltins
+--  env' <- evaluateConstants env
+  traceIO ("env is " ++ showMap env ++ "\nand main is " ++ show main ++ "\n\n")
+  runReaderT (eval $ ifnBody main) env
 
-getBuiltins :: Env
-getBuiltins =
-  Map.fromList
-    . zip builtinNames
-    . map VFun
-    . zipWith Builtin builtinNames $ map tLength builtinsTypes
+evaluateConstants :: Env -> IO Env
+evaluateConstants env = trace (showMap env) forMapWithKeyM env $  \name v -> case v of
+  VFun (Decl [] body) -> trace (show body ++ " matched the pattern.") $
+    if name /= "main" then runReaderT (eval body) env else return v
+  VFun (Ctor _name 0) -> trace (_name ++ " was reduced.") return $ VAlg _name []
+  anything -> trace (show anything ++ " did not match the pattern.") return anything
 
-initCtors :: [ITypeDecl] -> Env
-initCtors = Map.fromList . concatMap (\(TypeDecl _ _ variants) ->
-  map (\(TypeVariant name args) ->
-    (name, VFun . Ctor name $ length args)) variants)
-
-initEnv :: [IFnDecl] -> Env
-initEnv = foldMap declToEnv
-  where
-    declToEnv (IFnDecl _ _ name' args' body') = Map.singleton name' . VFun $ Decl args' body'
-
-withVar :: Name -> Value -> Eval a -> Eval a
-withVar k v = local (<> Map.singleton k v)
 
 eval :: IExpr -> Eval Value
-eval (IEAbstract x e) = VFun <$> asks (Closure x e)
-eval (IEApply e1 e2) =
+eval (IEAbstract x e) = trace ("Evaluating λ" ++ x ++ "." ++ show e) VFun <$> asks (Closure x e)
+eval (IEApply e1 e2) = trace ("Evaluating application of " ++ show e1 ++ " to " ++ show e2) $
   do v1 <- eval e1
+     lift $ traceIO $ show e1 ++ " evaluated to " ++ show v1
      v2 <- eval e2
+     lift $ traceIO $ show e2 ++ " evaluated to " ++ show v2
      apply (getFun v1) v2
-eval (IELet x e1 e2) =
+eval e@(IELet x e1 e2) = trace ("Evaluating " ++ show e) $
   do v1 <- eval e1
+     lift $ traceIO $ "Let binding " ++ x ++ " evaluated to " ++ show v1
      withVar x v1 $ eval e2
-eval (IEVar x) =
+eval (IEVar x) = trace ("Looking up value of variable " ++ x) $
   do mv <- asks $ Map.lookup x
      mv' <- asks . Map.lookup $ makePrelude x
      mv'' <- asks . Map.lookup $ makeBuiltin x
-     return $ fromMaybe (fromMaybe (fromJust mv'') mv') mv
-eval (IMatch pats x results) = eval x >>= \x' -> evalMatch pats x' results
-eval (ILit (LInt x)) = return $ VInt x
-eval (ILit LEmptyList) = return $ VList []
+     let v = fromMaybe (fromMaybe (fromJust mv'') mv') mv
+     lift $ traceIO $ "Found value " ++ show v ++ " for variable " ++ show x
+     if isThunk v
+       then eval (getExpr v)
+       else return v
+
+eval e@(IMatch pats x results) = trace ("Evaluating " ++ show e) eval x >>= \x' -> evalMatch pats x' results
+eval (ILit (LInt x)) = trace ("Evaluating integer literal " ++ show x) return $ VInt x
+eval (ILit LEmptyList) = trace "Evaluation empty list literal []" return $ VList []
+
 
 evalMatch :: [Pattern] -> Value -> [IExpr] -> Eval Value
 evalMatch (p:ps) x (e:es) =
- do (b, env) <- p `matches` x
+ do lift $ traceIO $ "Trying pattern " ++ show p ++ " against value " ++ show x
+    (b, env) <- p `matches` x
     if b
-      then local (<> env) $ eval e
+      then local (env <>) $ eval e
       else evalMatch ps x es
-evalMatch _ _ _ = error "patterns were not exhaustive: this can never happen"
+evalMatch _ _ _ = do
+  lift $ putStrLn "dupa xd"
+  error "patterns were not exhaustive: this can never happen"
 
 matches :: Pattern -> Value -> Eval (Bool, Env)
-matches (PVar x) v = return (True, if x == "_" then Map.empty else Map.singleton x v)
-matches (PTVariant pName pats) (VAlg vName vals) | pName == vName =
-  do (bools, envs) <- mapAndUnzipM (uncurry matches) $ zip pats vals
+matches (PVar "_") _ = return (True, Map.empty)
+matches (PVar x) v = return (True, Map.singleton x v)
+matches (PTVariant pName pats) v@(VAlg vName vals) | pName == vName =
+  do lift $ traceIO $ "evaluating type ctor pattern " ++ pName ++ " with subpatterns " ++ intercalate ", " (map show pats) ++ " against value " ++ show v
+     (bools, envs) <- mapAndUnzipM (uncurry matches) $ zip pats vals
+     liftIO $ traceIO $ "evaluation of tvariant pattern gave env:\n" ++ showMap (mconcat envs) ++ "\n"
      return $ if and bools
        then (True, mconcat envs)
        else (False, Map.empty)
-matches (PCons h t) (VList (hv : ht)) =
-  do (b1, env1) <- matches h hv
+matches (PCons h t) v@(VList (hv : ht)) =
+  do lift $ traceIO $ "evaluation list pattern " ++ show h ++ ":" ++ show t ++ " against value " ++ show v
+     (b1, env1) <- matches h hv
      (b2, env2) <- matches t (VList ht)
      return (b1 && b2, if b1 && b2 then env1 <> env2 else Map.empty)
 matches (PLit (LInt x)) (VInt y) | x == y = return (True, Map.empty)
@@ -82,23 +89,23 @@ partialValue :: [Value] -> Function -> Eval Value
 partialValue vs = return . VFun . Partial vs
 
 apply :: Function -> Value -> Eval Value
-apply (Decl [arg] body) v      = withVar arg v $ eval body
-apply f@(Decl _ _) v           = partialValue [v] f
-apply (Closure arg body env) v = local (const env) $ withVar arg v $ eval body
-apply (Builtin x 1) v          = return $ evalBuiltin x [v]
-apply f@(Builtin _ _) v        = partialValue [v] f
-apply (Ctor name 1) v          = return $ VAlg name [v]
-apply f@(Ctor _ _) v           = partialValue [v] f
-apply (Partial args fn) v | length args + 1 == argCount fn = fullApply fn (args ++ [v])
-apply (Partial args fn) v      = partialValue (args ++ [v]) fn
+apply f@(Decl [arg] body) v      = trace ("applying| " ++ show f ++ " to aarg " ++ show v) withVar arg v $ eval body
+apply f@(Decl _ _) v           = trace ("applying " ++ show f ++ " to arg " ++ show v) partialValue [v] f
+apply f@(Closure arg body env) v = trace ("applying " ++ show f ++ " to arg " ++ show v) local (const env) $ withVar arg v $ eval body
+apply f@(Builtin x 1) v          = trace ("applying| " ++ show f ++ " to arg " ++ show v) return $ evalBuiltin x [v]
+apply f@(Builtin _ _) v        = trace ("applying " ++ show f ++ " to arg " ++ show v) partialValue [v] f
+apply f@(Ctor name 1) v          = trace ("applying| " ++ show f ++ " to arg " ++ show v) return $ VAlg name [v]
+apply f@(Ctor _ _) v           = trace ("applying " ++ show f ++ " to arg " ++ show v) partialValue [v] f
+apply f@(Partial args fn) v | length args + 1 == argCount fn = trace ("applying| " ++ show f ++ " to arg " ++ show v) fullApply fn (args ++ [v])
+apply f@(Partial args fn) v      = trace ("applying " ++ show f ++ " to arg " ++ show v) partialValue (args ++ [v]) fn
 
 fullApply :: Function -> [Value] -> Eval Value
-fullApply (Decl args body) vs = local (<> Map.fromList (zip args vs)) $ eval body
-fullApply (Builtin name _) vs = return $ evalBuiltin name vs
-fullApply (Ctor name _) vs = return $ VAlg name vs
-fullApply (Partial args fn) vs | length args + length vs == argCount fn = fullApply fn (args ++ vs)
-fullApply (Partial args fn) vs = partialValue (args ++ vs) fn
-fullApply _ _ = error "fullApply to closure: this can never happen"
+fullApply f@(Decl args body) vs  = trace ("Fully applying " ++ show f ++ " to args " ++ show vs)local (Map.fromList (zip args vs) <>) $ eval body
+fullApply f@(Builtin name _) vs  = trace ("Fully applying " ++ show f ++ " to args " ++ show vs)return $ evalBuiltin name vs
+fullApply f@(Ctor name _) vs  = trace ("Fully applying " ++ show f ++ " to args " ++ show vs)return $ VAlg name vs
+fullApply f@(Partial args fn) vs | length args + length vs == argCount fn  = trace ("Fully applying " ++ show f ++ " to args " ++ show vs)fullApply fn (args ++ vs)
+fullApply f@(Partial args fn) vs  = trace ("Fully applying " ++ show f ++ " to args " ++ show vs)partialValue (args ++ vs) fn
+fullApply f vs  = trace ("Fully applying " ++ show f ++ " to args " ++ show vs)error "fullApply to closure: this can never happen"
 
 argCount :: Function -> Int
 argCount (Decl args _) = length args

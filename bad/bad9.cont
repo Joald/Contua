@@ -1,0 +1,6 @@
+# Kind error
+
+Maybe ::
+a = Nothing;
+
+main = const a;

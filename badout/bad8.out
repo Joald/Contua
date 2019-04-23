@@ -1,0 +1,2 @@
+Type error occured:
+Cannot unify type (Int -> a14) -> a14 with Int

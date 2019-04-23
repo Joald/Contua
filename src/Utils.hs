@@ -45,9 +45,18 @@ foldAdjacentM f g acc (x1:x2:xs) = do
 mapMapM :: (Monad m, Ord a) => (b -> m c) -> Map a b -> m (Map a c)
 mapMapM f m = Map.fromList . zip (Map.keys m) <$> mapM f (Map.elems m)
 
+forMapM :: (Monad m, Ord a) => Map a b -> (b -> m c) -> m (Map a c)
+forMapM = flip mapMapM
+
+mapMapWithKeyM :: (Monad m, Ord a) => (a -> b -> m c) -> Map a b -> m (Map a c)
+mapMapWithKeyM f m = Map.fromList . zip (Map.keys m) <$> zipWithM f (Map.keys m) (Map.elems m)
+
+forMapWithKeyM :: (Monad m, Ord a) => Map a b -> (a -> b -> m c) -> m (Map a c)
+forMapWithKeyM = flip mapMapWithKeyM
+
 -- | utility shows for better printing
 showMap :: (Show a, Show b) => Map a b -> String
-showMap m = intercalate "\n" . map showPair $ Map.toList m
+showMap m = replicate 20 '-' ++ concatMap (("\n" ++) . showPair) (Map.toList m) ++ "\n" ++ replicate 20 '-'
 
 showPair :: (Show a, Show b) => (a, b) -> String
 showPair (x, y) = show x ++ " := " ++ show y

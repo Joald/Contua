@@ -1,0 +1,6 @@
+# Unbound type.
+
+NonExistentType ::
+a = [];
+
+main = const a;

@@ -2,8 +2,8 @@ type Tree a = Empty | Node a (Tree a) (Tree a);
 
 mapTree f t c = match t with
   | Empty => c Empty
-  | Node x t1 t2 => mapTree f t1 (λl . mapTree f t2 (λr . Node (f x) l r));
+  | Node x t1 t2 => mapTree f t1 (λl . mapTree f t2 (λr . c (Node (f x) l r)));
 
 testTree = Node 1 (Node 2 Empty Empty) (Node 3 Empty Empty);
 
-main = mapTree succ testTree id;
+main = mapTree succ testTree;

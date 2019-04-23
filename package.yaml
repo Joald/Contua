@@ -29,6 +29,7 @@ dependencies:
 - hspec >= 2.6.1
 - hspec-megaparsec
 - containers
+- directory
 
 library:
   source-dirs: src

@@ -28,7 +28,7 @@ step :: Parser AST
 step = flip AST [] . (:[]) <$> try typeDecl <|> AST [] .  (:[]) <$> funDecl
 
 program :: Parser AST
-program = sc *> (foldr1 composeASTs <$> many step) <* eof
+program = sc *> (foldr composeASTs (AST [] []) <$> many step) <* eof
 
 type ParserError = String
 

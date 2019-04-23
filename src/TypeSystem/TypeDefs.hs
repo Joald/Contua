@@ -106,7 +106,8 @@ data TypeSystemError =
   | TooManyArgumentsError Type
   | MultipleBindings Name Context
   | EntryPointNotFoundError
-  | MultipleEntryPointsFound
+  | ForbiddenRecursiveConstant Name
+  | NonContinuation Type
 
 instance Show TypeSystemError where
   show (KindError s) = "Kind error occured: " ++ s
@@ -117,7 +118,8 @@ instance Show TypeSystemError where
   show (TooManyArgumentsError t) = "Type " ++ show t ++ " is not a function type."
   show (MultipleBindings name context) = "Multiple bindings of identifier " ++ name ++ " in " ++ context
   show EntryPointNotFoundError = "Cannot find the entry point of the program. Did you specify the `main` function?"
-  show MultipleEntryPointsFound = "Multiple main functions found."
+  show (ForbiddenRecursiveConstant name) = "Forbidden recursive use of constant" ++ name
+  show (NonContinuation t) = "Forbidden non-continuation style type of top-level function " ++ show t
 
 type TypeCheck a = WriterT (Map Name Type) (ReaderT TypeEnv (StateT InferenceState (ReaderT String (Except TypeSystemError)))) a
 

@@ -35,6 +35,10 @@ traceM s = do
   prefix <- liftPrefix ask
   Debug.Trace.traceM $ prefix ++ s
 
+{- |
+  TODO 1: disallow recursive constants.
+-}
+
 
 -- | Type system is based on the Hindley-Milner algorithm as presented here:
 -- http://dev.stephendiehl.com/fun/006_hindley_milner.html
@@ -149,9 +153,9 @@ typeCheckFunctions (fn:fns) =
      s <- generalizeType t
      traceM $ "Found type scheme " ++ show s ++ " for function " ++ ifnName fn
      (mt, s2) <- local (mapSchemeEnv $ Map.insert (ifnName fn) s) . localWithSubst s1 $ typeCheckFunctions fns
-     if | ifnName fn == "main" && isNothing mt -> return (Just t, s2 `compose` s1)
-        | ifnName fn == "main" -> throwError MultipleEntryPointsFound
-        | otherwise -> return (mt, s2 `compose` s1)
+     return $ if ifnName fn == "main"
+                then (Just t, s2 `compose` s1)
+                else (mt, s2 `compose` s1)
 
 
 typeCheckFunction :: IFnDecl -> TypeCheck (Type, TypeSubst)
@@ -167,8 +171,17 @@ typeCheckFunction (IFnDecl _ Nothing name args body) =
   do traceM ("NOW INFERRING: " ++ name ++ "...")
      (funType, s) <- doTypeCheckFunction args body
      traceM $ "Inferrer found type " ++ show funType
+     s' <- if isBuiltin name || isPrelude name
+            then return nullSubst
+            else verifyContinuativity funType
      tell $ Map.singleton name funType
-     return (funType, s)
+     return (funType, s' `compose` s)
+
+verifyContinuativity :: Type -> TypeCheck TypeSubst
+verifyContinuativity t = case typeArgs t of
+  [] -> return nullSubst
+  [_] -> throwError $ NonContinuation t
+  args -> unifyTypes (typeBody t) $ typeBody $ last args
 
 doTypeCheckFunction :: [Name] -> IExpr -> TypeCheck (Type, TypeSubst)
 doTypeCheckFunction args body =
@@ -176,7 +189,6 @@ doTypeCheckFunction args body =
      let argMap = Map.fromList argTypes
      (t, s) <- local (mapSchemeEnv $ Map.union argMap) $ inferType body
      return (foldr ((^->^) . apply s . schT . snd) (apply s t) argTypes, s)
-
 
 unifyTypes :: Type -> Type -> TypeCheck TypeSubst
 unifyTypes t1@(TArrow l1 r1) t2@(TArrow l2 r2) = trace ("unify types " ++ show t1 ++ " with " ++ show t2) $

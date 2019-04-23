@@ -12,3 +12,7 @@ type BExpr =
   | EAnd BExpr BExpr
   | EOr BExpr BExpr
   | EEq Expr Expr;
+
+type NotImplemented = NotImplemented;
+
+main = const NotImplemented;

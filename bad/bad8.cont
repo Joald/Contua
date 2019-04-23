@@ -1,0 +1,4 @@
+# non-continuation function defined as alias on a prelude non-continuation function
+Int -> Int ::
+intId = id;
+

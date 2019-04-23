@@ -15,7 +15,10 @@ import Control.Applicative (liftA2)
 preprocess :: AST -> Either String IAST
 preprocess (AST types fns) = liftA2 IAST (runExcept $ mapM unContTypes types) . pure $ map convertFn fns
   where
-    convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) = IFnDecl _fnContType _fnType _fnName _fnArgs $ desugar _fnBody
+    convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) = IFnDecl _fnContType _fnType _fnName _fnArgs $
+      if _fnName == "main"
+        then desugar _fnBody ^^$ IEVar "id"
+        else desugar _fnBody
 
 infixl 9 ^^$
 (^^$) :: IExpr -> IExpr -> IExpr

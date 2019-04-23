@@ -1,0 +1,4 @@
+type Box a = Boxed a;
+type Tree a = Node a (Tree a) (Tree a) | Empty;
+
+main = const (Node (Boxed Empty) Empty Empty);
