@@ -10,6 +10,7 @@ typeOperatorTable :: [[Operator Parser Type]]
 typeOperatorTable =
   [ [ binary "" TApply ]
   , [ binaryR "->" TArrow ]
+  , [ binaryN "-->" TFun ]
   ]
 
 typeTerm :: Parser Type
@@ -36,3 +37,6 @@ typeDecl =
     <* symbol "="
     <*> ((:) <$> typeVariant <*> many (symbol "|" *> typeVariant))
     <* symbol ";"
+
+aliasDecl :: Parser TypeAlias
+aliasDecl = Alias <$ keyword "alias" <*> typeName <* symbol "=" <*> type_ <* symbol ";"

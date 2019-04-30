@@ -14,8 +14,8 @@ id2 = \x.x;
 Int -> Int ::
 succ x = x + 1;
 
-(a -> b) -> (b -> c) -> a -> c ::
-comp f g x = g (f x);
+(b -> c) -> (a -> b) -> a -> c ::
+comp f g x = f (g x);
 
 (a -> b) -> [a] -> [b] ::
 map f xs = match xs with
@@ -29,3 +29,14 @@ contMap f xs c = match xs with
 
 a -> b -> a ::
 const x _ = x;
+
+(a -> b) -> a -> b -> a -> b ::
+mapsTo f x y a =
+  if a == x
+    then y
+    else f a;
+
+type Return a = Return a;
+
+unReturn x = match x with | Return y => y;
+

@@ -39,6 +39,11 @@ foldAdjacentM f g acc (x1:x2:xs) = do
   res1 <- f x1 x2
   foldAdjacentM f g (g acc res1) (x2:xs)
 
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM b m = b >>= (`when` m)
+
+andM :: Monad m => m [Bool] -> m Bool
+andM = fmap and
 
 -- | Generalization of Map.map to monadic actions.
 --   Basically a fusion of Map.map and mapM
@@ -64,7 +69,6 @@ showPair (x, y) = show x ++ " := " ++ show y
 showList' :: Show a => [a] -> String
 showList' = intercalate "\n" . map show
 
-
 -- | Given a function that is an endomorphism and an argument,
 -- returns the fixed point by repeatedly applying the function to the result.
 fix' :: Eq a => (a -> a) -> a -> a
@@ -73,3 +77,10 @@ fix' f x =
     in if x == y
          then y
          else fix' f y;
+
+fixM :: (Eq a, Monad m) => (a -> m a) -> a -> m a
+fixM f x = do
+  y <- f x
+  if x == y
+    then return y
+    else fixM f y

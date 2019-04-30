@@ -9,7 +9,7 @@ import qualified Text.Megaparsec.Char.Lexer     as L
 type Parser = Parsec Void String
 
 sc_ :: Parser () -> Parser ()
-sc_ x = L.space x (L.skipLineComment "#") (L.skipBlockComment "#{" "}#")
+sc_ x = L.space x (L.skipLineComment "#") (L.skipBlockComment "{#" "}#")
 
 sc :: Parser ()
 sc = sc_ space1
@@ -37,6 +37,9 @@ opChar = oneOf "-*+:"
 binary :: String -> (a -> a -> a) -> Operator Parser a
 binary name f = InfixL (f <$ symbol name)
 
+binaryN :: String -> (a -> a -> a) -> Operator Parser a
+binaryN name f = InfixN (f <$ symbol name)
+
 binaryR :: String -> (a -> a -> a) -> Operator Parser a
 binaryR name f = InfixR (f <$ symbol name)
 
@@ -49,7 +52,7 @@ prefix name f = Prefix (f <$ symbol name)
 postfix name f = Postfix (f <$ symbol name)
 
 keywords :: [String]
-keywords = ["type", "fn", "let", "in", "match", "with", "if", "then", "else", "and", "or", "not"]
+keywords = ["type", "alias", "fn", "let", "in", "match", "with", "if", "then", "else", "and", "or", "not"]
 
 withPredicate :: (a -> Bool) -- ^ The check to perform on parsed input
   -> String -- ^ Message to print when the check fails

@@ -22,13 +22,18 @@ import Parser.TypeDecls
 
 
 composeASTs :: AST -> AST -> AST
-(AST types1 fns1) `composeASTs` (AST types2 fns2) = AST (types1 ++ types2) (fns1 ++ fns2)
+(AST types1 aliases1 fns1) `composeASTs` (AST types2 aliases2 fns2) =
+  AST (types1 ++ types2) (aliases1 ++ aliases2) (fns1 ++ fns2)
 
 step :: Parser AST
-step = flip AST [] . (:[]) <$> try typeDecl <|> AST [] .  (:[]) <$> funDecl
+step = choice
+  [ AST . (:[]) <$> try typeDecl <*> pure [] <*> pure []
+  , AST [] . (:[]) <$> try aliasDecl <*> pure []
+  , AST [] [] . (:[]) <$> funDecl
+  ]
 
 program :: Parser AST
-program = sc *> (foldr composeASTs (AST [] []) <$> many step) <* eof
+program = sc *> (foldr composeASTs (AST [] [] []) <$> many step) <* eof
 
 type ParserError = String
 

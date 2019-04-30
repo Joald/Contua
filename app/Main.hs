@@ -42,7 +42,7 @@ parseRealProgram :: String -> String -> Either ProgramError AST
 parseRealProgram name = first ParseError . parseProgram name
 
 mapPrelude :: AST -> AST
-mapPrelude (AST types fns) = AST types $ map (\fn -> fn { fnName = makePrelude $ fnName fn }) fns
+mapPrelude (AST types als fns) = AST types als $ map (\fn -> fn { fnName = makePrelude $ fnName fn }) fns
 
 getRight :: Either e a -> a
 getRight (Right x) = x

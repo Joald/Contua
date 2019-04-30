@@ -4,13 +4,17 @@ import Data.List (intercalate)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-data AST = AST { typeDecls :: [TypeDecl], funDecls :: [FunDecl] } deriving (Eq)
+data AST = AST { typeDecls :: [TypeDecl], typeAliases :: [TypeAlias], funDecls :: [FunDecl] } deriving (Eq)
 
 instance Show AST where
-  show (AST ts fns) =
-    intercalate "\n\n" $ map show ts ++ map show fns
+  show (AST ts aliases fns) =
+    intercalate "\n\n" $ map show ts ++ map show aliases ++ map show fns
 
 data FunDecl = FunDecl { fnContType :: Maybe Type, fnType :: Maybe Type, fnName :: Name, fnArgs :: [Name], fnBody :: Expr } deriving (Eq)
+
+data TypeAlias = Alias { aliasName :: Name, aliasType :: Type } deriving (Show, Eq)
+unAlias :: TypeAlias -> (Name, Type)
+unAlias (Alias name t) = (name, t)
 
 mapFromDeclList :: [TypeDecl] -> Map Name TypeDecl
 mapFromDeclList list = Map.fromList $ map (\td -> (tdName td, td)) list
@@ -41,7 +45,7 @@ instance Show TypeDecl where
   show (TypeDecl name args variants) =
       "type "
     ++ name
-    ++ if null args then "" else " "
+    ++ (if null args then "" else " ")
     ++ unwords (map show args)
     ++ " = "
     ++ intercalate " | " (map show variants)
@@ -68,8 +72,10 @@ data Type =
   | TArrow Type Type
   | TApply Type Type
   | TBottom
-  | TBuiltin Name
+  | TBuiltin { unBuiltin :: Name }
   | TCont (Maybe Type) Type
+  | TNotFunction Type
+  | TFun Type Type -- works like arrow but is used to signify intended return type
   deriving (Eq, Ord)
 
 typeArgs :: Type -> [Type]
@@ -95,6 +101,7 @@ instance Show Type where
   show TBottom = "⊥"
   show (TBuiltin name) = "" ++ name ++ ""
   show (TCont tc t) = show t ++ " with continuation " ++ show tc
+  show (TNotFunction t) = "non-fn{" ++ show t ++ "}"
 
 showType :: Type -> String
 showType t@(TArrow _ _) = "(" ++ show t ++ ")"

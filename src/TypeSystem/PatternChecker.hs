@@ -18,7 +18,7 @@ import Debug.Trace (traceM)
 type PatternError = String
 
 checkPatterns :: AST -> CoverageCheck ()
-checkPatterns (AST _ fns) = mapM_ (checkPatternsExp . fnBody) fns
+checkPatterns (AST _ _ fns) = mapM_ (checkPatternsExp . fnBody) fns
 
 checkPatternsExp :: Expr -> CoverageCheck ()
 checkPatternsExp (EAdd e1 e2) = checkPatternsExp e1 >> checkPatternsExp e2
@@ -50,23 +50,21 @@ toCoverage (EListLiteral list) = foldM (\a x -> flip SpecificFirstElem a <$> toC
 toCoverage (ECons x xs) = toCoverage x >>= \case
                                              Anything -> AnyFirstElem <$> toCoverage xs
                                              res -> SpecificFirstElem res <$> toCoverage xs
-toCoverage e@(EApply e1 _) | ETypeName name <- leftmost e1 =
-  do
-    tName <- findType name
-    variantArgs <- mapM toCoverage $ gatherArgs e
-    return $ Ctors tName $ Map.fromList [(name, variantArgs)]
+toCoverage e@(EApply e1 _) | ETypeName name <- leftmost e1 = do
+  tName <- findType name
+  variantArgs <- mapM toCoverage $ gatherArgs e
+  Ctors tName (Map.fromList [(name, variantArgs)]) >< Ctors tName Map.empty
 
 toCoverage (EInt _) = return ExactInt
 toCoverage (ETypeName name) = Ctors <$> findType name <*> pure (Map.singleton name [])
 toCoverage e = throwError $ "Cannot use expression " ++ show e ++ " in pattern matching."
 
 findType :: Name -> CoverageCheck Name
-findType ctorName =
-  do
-    mt <- asks $ Map.filter (any ((ctorName ==) . tvName) . tdVariants)
-    when (Map.null mt) . throwError $ "Cannot find a type with constructor " ++ ctorName
-    when (Map.size mt > 1) . throwError $ "Ambiguous reference to type constructor " ++ ctorName ++ ", it matches types: " ++ intercalate ", " (Map.keys mt)
-    return . head $ Map.keys mt
+findType ctorName = do
+  mt <- asks $ Map.filter (any ((ctorName ==) . tvName) . tdVariants)
+  when (Map.null mt) . throwError $ "Cannot find a type with constructor " ++ ctorName
+  when (Map.size mt > 1) . throwError $ "Ambiguous reference to type constructor " ++ ctorName ++ ", it matches types: " ++ intercalate ", " (Map.keys mt)
+  return . head $ Map.keys mt
 
 
 type CoverageEnv = Map Name TypeDecl

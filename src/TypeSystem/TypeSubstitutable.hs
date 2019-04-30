@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
 module TypeSystem.TypeSubstitutable where
 
 import Data.Map (Map)
@@ -52,6 +54,7 @@ instance TypeSubstitutable Type where
   fv (TApply t1 t2) = Set.union (fv t1) (fv t2)
   fv (TArrow t1 t2) = Set.union (fv t1) (fv t2)
   fv (TList t)      = fv t
+  fv (TNotFunction t)= fv t
   fv (TVar n)       = Set.singleton n
   fv (TName _)      = Set.empty
   fv (TBuiltin _)   = Set.empty
@@ -61,6 +64,14 @@ instance TypeSubstitutable Type where
   apply subst (TApply t1 t2) = TApply (apply subst t1) (apply subst t2)
   apply subst (TList t) = TList $ apply subst t
   apply subst t@(TVar n) = Map.findWithDefault t n (unSubst subst)
+  apply subst (TNotFunction t) = TNotFunction $ apply subst t
   apply _ t = t
 
+instance TypeSubstitutable TypeDecl where
+  fv = undefined
+  apply subst td@(TypeDecl { tdVariants, ..}) = td { tdVariants = apply subst tdVariants }
 
+
+instance TypeSubstitutable TypeVariant where
+  fv = undefined
+  apply subst (TypeVariant name args) = TypeVariant name $ apply subst args

@@ -24,7 +24,7 @@ builtinsTypes =
   , binaryType boolType -- andName
   , binaryType boolType -- orName
   , unaryType boolType -- notName
-  , aType ^->^ aType ^->^ boolType -- eqName
+  , TNotFunction aType ^->^ TNotFunction aType ^->^ boolType -- eqName
   , intType ^->^ intType ^->^ boolType -- leqName
   , boolType ^->^ aType ^->^ aType ^->^ aType -- ifteName
   ]
@@ -32,3 +32,6 @@ builtinsTypes =
 builtinTypes :: Map Name Type
 builtinTypes = Map.fromList . zip typeNames $ map TBuiltin typeNames
   where typeNames = ["Int"]
+
+builtinTypeDecls :: Map Name TypeDecl
+builtinTypeDecls = Map.map (\name -> TypeDecl (unBuiltin name) [] []) builtinTypes

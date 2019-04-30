@@ -1,18 +1,66 @@
+# --Continuation-style denotational semantics for the Tiny language.
+
+type Var = A | B | C | D | E | F | G | H; # TODO: make this better
 type Num = Num Int;
-type Store = Store (Loc -> Num);
+alias Store = Loc -> Num;
 type Loc = Loc Int;
-type Env = Env (Name -> Store);
+alias Env = Var -> Loc;
+
 type Expr =
     ENum Num
+  | EVar Var
   | EAdd Expr Expr
-  | ESub Expr Expr
-  | EMul Expr Expr;
+  | EMul Expr Expr
+  | ESub Expr Expr;
+
 type BExpr =
-    EBool Bool
-  | EAnd BExpr BExpr
-  | EOr BExpr BExpr
-  | EEq Expr Expr;
+    BBool Bool
+  | BLeq Expr Expr
+  | BAnd BExpr BExpr
+  | BNot BExpr;
 
-type NotImplemented = NotImplemented;
+type Stmt =
+    SSkip
+  | SSeq Stmt Stmt
+  | SAsgn Var Expr
+  | SIfte BExpr Stmt Stmt
+  | SWhile BExpr Stmt;
 
-main = const NotImplemented;
+{# {- | Due to the limitations of the type system
+   the statement denotation function
+   differs from the one presented on the lecture
+   Semantics and verification of computer programs. -} }#
+
+Store -> Store :
+Stmt -> Env -> Store -> Return Store ::
+# Stmt -> Env -> Store -> (Return Store -> Store -> Store) -> Store -> Store
+evalStmt stmt env s c = let cr = comp c Return in
+  match stmt with
+  | SSkip => cr s
+  | SSeq s1 s2 => evalStmt s1 env s (\st1 . evalStmt s2 env (unReturn st1) c)
+  | SAsgn x e => evalExpr e env (\n . cr (mapsTo s (env x) n))
+  | _ => cr s;
+
+
+Store -> Store :
+Expr -> Env -> Num ::
+# Expr -> Env -> (Num -> Store -> Store) -> Store -> Store
+evalExpr e env c = match e with
+| ENum x => c x
+| EVar v => \s . c (s (env v))
+| _ => c (Num 1);
+
+
+
+
+main =
+let emptyEnv = const (Loc (-1)) in
+let emptyState = const (Num (-1)) in
+  const (evalStmt
+  (SAsgn A (ENum (Num 67)))            # stmt
+  (mapsTo emptyEnv   A       (Loc 1))  # env
+  (mapsTo emptyState (Loc 1) (Num 23)) # store
+  (comp const unReturn)                # continuation
+  emptyState                           # store passed to final continuation
+  (Loc 1)                              # result location
+);

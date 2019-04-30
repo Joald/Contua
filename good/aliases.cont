@@ -1,0 +1,9 @@
+alias A = F;
+alias B = C;
+alias C = D;
+alias D = E;
+alias E = F;
+alias F = Int;
+
+A ::
+main = const 1;

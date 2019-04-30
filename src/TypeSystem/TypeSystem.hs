@@ -26,6 +26,7 @@ import Control.Monad.Writer
 import Data.Bifunctor (second, first)
 import Data.List (intercalate, nub)
 import qualified Data.List as L
+import Control.Applicative (liftA2)
 
 liftPrefix :: ReaderT String (Except TypeSystemError) a -> TypeCheck a
 liftPrefix = lift . lift . lift
@@ -56,6 +57,9 @@ runTypeCheck tc = second fst $ runExcept (runReaderT (evalStateT (runReaderT (ru
 
 liftExcept :: (b -> TypeSystemError) -> Except b a -> TypeCheck a
 liftExcept err = lift . lift . lift . lift . withExcept err
+
+throwWhenM :: MonadError a m => m Bool -> a -> m ()
+throwWhenM b e = whenM b $ throwError e
 
 throwWhenMultipleEqual :: [Name] -> String -> TypeCheck ()
 throwWhenMultipleEqual xs context = when (length (nub xs) /= length xs) . throwError $ MultipleBindings (show . head $ xs L.\\ nub xs) context
@@ -120,7 +124,7 @@ doTypeChecking ast@(IAST types fns) =
           Nothing -> convertTypeToCont (ifnName fn) <$> ifnType fn <*> pure (TVar "")
           Just ct -> convertTypeToCont (ifnName fn) <$> ifnType fn <*> pure ct
         }) fns
-        typeMap  = Map.map typeFromDecl $ mapFromDeclList types
+        typeMap = mapFromDeclList types
 
      finalFns <- preprocessFns contFns
      traceM $ "finalFns: " ++ showList' finalFns ++ "\n"
@@ -132,7 +136,7 @@ doTypeChecking ast@(IAST types fns) =
              return (ifnName t, s))
      typesOfBuiltins' <- typesOfBuiltins
      traceM $ "types of builtins: " ++ showMap typesOfBuiltins' ++ "\n"
-     ((main, s), m) <- listen $ local (const $ TypeEnv (Map.union typeMap builtinTypes) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins']) $ typeCheckFunctions finalFns
+     ((main, s), m) <- listen $ local (const $ TypeEnv (typeMap <> builtinTypeDecls) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins']) $ typeCheckFunctions finalFns
      throwWhenNothing main EntryPointNotFoundError
      traceM $ "Found type " ++ show (fromJust main) ++ " for the main function."
      traceM $ "Final subst is:\n" ++ showMap (unSubst s)
@@ -190,6 +194,19 @@ doTypeCheckFunction args body =
      (t, s) <- local (mapSchemeEnv $ Map.union argMap) $ inferType body
      return (foldr ((^->^) . apply s . schT . snd) (apply s t) argTypes, s)
 
+containsFn :: Type -> TypeCheck Bool
+containsFn (TArrow _ _) = return True
+containsFn (TApply t1 t2) = liftA2 (&&) (containsFn t1) (containsFn t2)
+containsFn (TList t) = containsFn t
+containsFn (TNotFunction t) = containsFn t
+containsFn (TName name) = do
+  env <- ask
+  let mt = Map.lookup name $ typeDict env
+  throwWhenNothing mt $ UnboundTypeVariableError name
+  let TypeDecl _ _ variants = fromJust mt
+  fmap or $ mapM containsFn $ concatMap tvArgs variants
+containsFn _ = return False
+
 unifyTypes :: Type -> Type -> TypeCheck TypeSubst
 unifyTypes t1@(TArrow l1 r1) t2@(TArrow l2 r2) = trace ("unify types " ++ show t1 ++ " with " ++ show t2) $
   do s1 <- unifyTypes l1 l2
@@ -203,10 +220,31 @@ unifyTypes t1@(TApply l1 r1) t2@(TApply l2 r2) = trace ("unify types " ++ show t
 
 unifyTypes (TList t1) (TList t2) = trace ("unify types " ++ show (TList t1) ++ " with " ++ show (TList t2)) $
   unifyTypes t1 t2
+
 unifyTypes (TVar n) t = trace ("unify type variable " ++ n ++ " with type " ++ show t) $
   bindType n t
 unifyTypes t (TVar n) = trace ("unify type variable " ++ n ++ " with type " ++ show t) $
   bindType n t
+
+unifyTypes (TNotFunction t1) (TNotFunction t2) = do
+  traceM $ "unify type non-fn " ++ show t1 ++ " with type " ++ show t2
+  throwWhenM (containsFn t1) $ FunctionComparison t1
+  throwWhenM (containsFn t2) $ FunctionComparison t2
+  unifyTypes t1 t2
+
+unifyTypes (TNotFunction (TVar a)) t = do
+  traceM $ "unify type var " ++ a ++ " with type " ++ show t
+  throwWhenM (containsFn t) $ FunctionComparison t
+  unifyTypes (TVar a) t
+
+unifyTypes t t'@(TNotFunction (TVar _)) = unifyTypes t' t
+
+unifyTypes (TNotFunction t1) t = do
+  throwWhenM (containsFn t) $ FunctionComparison t
+  throwWhenM (containsFn t1) $ FunctionComparison t1
+  unifyTypes t1 t
+unifyTypes t t'@(TNotFunction _) = unifyTypes t' t
+
 unifyTypes t1@(TBuiltin n1) t2@(TBuiltin n2)
   | n1 == n2  = return nullSubst
   | otherwise = throwError $ UnificationError t1 t2
@@ -216,10 +254,11 @@ unifyTypes t1@(TBuiltin n1) t2@(TName n2)
 unifyTypes t1@(TName n1) t2@(TBuiltin n2)
   | n1 == n2 = return nullSubst
   | otherwise = throwError $ UnificationError t1 t2
-unifyTypes (TName n) t = trace ("lookup type name " ++ n ++ " and unify with type " ++ show t) $
-  lookupType n t
-unifyTypes t (TName n) = trace ("lookup type name " ++ n ++ " and unify with type " ++ show t) $
-  lookupType n t
+--unifyTypes (TName n) t = trace ("lookup type name " ++ n ++ " and unify with type " ++ show t) $
+--  lookupType n t
+--unifyTypes t (TName n) = trace ("lookup type name " ++ n ++ " and unify with type " ++ show t) $
+--  lookupType n t
+unifyTypes (TName n1) (TName n2) | n1 == n2 = return nullSubst
 unifyTypes TBottom _ = return nullSubst
 unifyTypes _ TBottom = return nullSubst
 unifyTypes t1 t2 = trace ("cannot unify " ++ show t1 ++ " with " ++ show t2) $
@@ -231,16 +270,15 @@ bindType n t
   | occursCheck n t = throwError $ OccursCheck n t
   | otherwise = return . Subst $ Map.singleton n t
 
-
-lookupType :: Name -> Type -> TypeCheck TypeSubst
-lookupType n t
-  | TName n == t = return nullSubst
-  | otherwise =
-  do env <- ask
-     let m = Map.lookup n $ typeDict env
-     throwWhenNothing m $ UnboundTypeVariableError n t
-     traceM $ "Looked up " ++ n ++ " and found " ++ show (fromJust m)
-     unifyTypes t $ fromJust m
+--lookupType :: Name -> Type -> TypeCheck TypeSubst
+--lookupType n t
+--  | TName n == t = return nullSubst
+--  | otherwise =
+--  do env <- ask
+--     let m = Map.lookup n $ typeDict env
+--     throwWhenNothing m $ UnboundTypeVariableError n t
+--     traceM $ "Looked up " ++ n ++ " and found " ++ show (fromJust m)
+--     unifyTypes t $ fromJust m
 
 localWithSubst :: TypeSubst -> TypeCheck a -> TypeCheck a
 localWithSubst s = local (\env -> env { schemeDict = apply s $ schemeDict env })
@@ -260,7 +298,7 @@ inferType (IEApply e1 e2) = trace ("inferType (" ++ show e1 ++ ") (" ++ show e2 
   do (t1, s1) <- inferType e1
      traceM $ "inference for the function returned " ++ show (t1, s1)
      (t2, s2) <- localWithSubst s1 $ inferType e2
-     traceM $ "inference for the argument returned " ++ show (t2, s2)
+     traceM $ "inference for the argument " ++ show e2 ++ " returned " ++ show (t2, s2)
      name     <- freshTypeName
      s3       <- unifyTypes (apply s2 t1) (t2 ^->^ name)
      traceM $ "s1: " ++ show s1

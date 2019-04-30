@@ -99,7 +99,7 @@ type Context = String
 
 data TypeSystemError =
     KindError String
-  | UnboundTypeVariableError Name Type
+  | UnboundTypeVariableError Name
   | UnboundVariableError Name
   | UnificationError Type Type
   | OccursCheck Name Type
@@ -108,10 +108,11 @@ data TypeSystemError =
   | EntryPointNotFoundError
   | ForbiddenRecursiveConstant Name
   | NonContinuation Type
+  | FunctionComparison Type
 
 instance Show TypeSystemError where
   show (KindError s) = "Kind error occured: " ++ s
-  show (UnboundTypeVariableError n t) = "Unbound type variable " ++ n ++ ", expected " ++ show t
+  show (UnboundTypeVariableError n) = "Unbound type variable " ++ n ++ "."
   show (UnboundVariableError n) = "Unbound variable: " ++ show n
   show (UnificationError t1 t2) = "Cannot unify type " ++ show t1 ++ " with " ++ show t2
   show (OccursCheck n t) = "Occurs check: cannot construct infinite type " ++ n ++ " ~ " ++ show t
@@ -120,12 +121,12 @@ instance Show TypeSystemError where
   show EntryPointNotFoundError = "Cannot find the entry point of the program. Did you specify the `main` function?"
   show (ForbiddenRecursiveConstant name) = "Forbidden recursive use of constant" ++ name
   show (NonContinuation t) = "Forbidden non-continuation style type of top-level function " ++ show t
-
+  show (FunctionComparison t) = "Cannot compare objects of type " ++ show t
 type TypeCheck a = WriterT (Map Name Type) (ReaderT TypeEnv (StateT InferenceState (ReaderT String (Except TypeSystemError)))) a
 
 newtype InferenceState = IState { counter :: Int }
 
-data TypeEnv = TypeEnv { typeDict :: Map Name Type, schemeDict :: Map Name Scheme } deriving (Show, Eq)
+data TypeEnv = TypeEnv { typeDict :: Map Name TypeDecl, schemeDict :: Map Name Scheme } deriving (Show, Eq)
 
 data Scheme = ForAll { schVars :: [Name], schT :: Type } deriving (Eq)
 

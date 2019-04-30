@@ -1,6 +1,5 @@
-# Unbound type.
+# loop in type aliases
 
-NonExistentType ::
-a = [];
+alias A = B;
 
-main = const a;
+alias B = Either A Int;

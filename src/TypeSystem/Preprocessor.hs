@@ -1,24 +1,42 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
 module TypeSystem.Preprocessor where
+
+import Data.Bifunctor (first, second)
+import Control.Monad.Except (Except, throwError, runExcept)
+import Control.Monad (when)
+import Control.Applicative (liftA2)
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 import TypeSystem.TypeDefs
 import Semantics.Builtins
 import Parser.TypeDefs
-import Data.Bifunctor (first, second)
-import Control.Monad.Except (Except, throwError, runExcept)
-import Control.Monad (when)
-
 import Utils
-import Control.Applicative (liftA2)
+import Control.Monad.Reader
+import TypeSystem.UnContifier
+
+import TypeSystem.Aliasing
+
+import Debug.Trace
 
 preprocess :: AST -> Either String IAST
-preprocess (AST types fns) = liftA2 IAST (runExcept $ mapM unContTypes types) . pure $ map convertFn fns
-  where
-    convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) = IFnDecl _fnContType _fnType _fnName _fnArgs $
-      if _fnName == "main"
-        then desugar _fnBody ^^$ IEVar "id"
-        else desugar _fnBody
+preprocess (AST types _aliases fns) = do
+  aliases  <- preprocessAliases _aliases
+  let aliasMap = Map.fromList $ map unAlias aliases
+      mapAliases t = runReader (applyAlias t) (traceShowId aliasMap)
+      convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) =
+        IFnDecl (mapAliases <$> _fnContType) (mapAliases <$> _fnType) _fnName _fnArgs $
+          if _fnName == "main"
+            then desugar _fnBody ^^$ IEVar "id"
+            else desugar _fnBody
+  liftA2 IAST (map (mapTypeDecl mapAliases) <$> runExcept (mapM unContTypes types)) $
+    pure $ map convertFn fns
+    where
+      mapTypeDecl f td@TypeDecl { tdVariants, .. } = td { tdVariants = map (mapVariant f) tdVariants }
+      mapVariant f (TypeVariant name args) = TypeVariant name $ map (fix' f) args
+
 
 infixl 9 ^^$
 (^^$) :: IExpr -> IExpr -> IExpr
@@ -59,22 +77,3 @@ toPattern e@(EApply e1 _) | ETypeName name <- leftmost e1 =
 toPattern (EInt x) = PLit (LInt x)
 toPattern (ETypeName name) = PTVariant name []
 toPattern _ = error "This should never happen: it's a bug on our side. Sorry!"
-
-type UnCont a = Except String a
-
-
-unContTypes :: TypeDecl -> UnCont ITypeDecl
-unContTypes td @ TypeDecl {tdVariants, ..} = (\vs -> td { tdVariants = vs }) <$> mapM unContTypeVariant tdVariants
-
-unContTypeVariant :: TypeVariant -> UnCont TypeVariant
-unContTypeVariant (TypeVariant name args) = TypeVariant name <$> mapM unContType args
-
-unContType :: Type -> UnCont Type
-unContType (TCont (Just tc) t) = do
-  let (args, body) = pap (typeArgs, typeBody) t
-  when (null args) . throwError $ "Cannot add continuation to non-function type " ++ show t
-  return $ foldl1 (^->^) $ args ++ [body ^->^ tc, tc]
-unContType (TArrow t1 t2) = liftA2 TArrow (unContType t1) (unContType t2)
-unContType (TApply t1 t2) = liftA2 TApply (unContType t1) (unContType t2)
-unContType (TList t) = fmap TList (unContType t)
-unContType t = return t
