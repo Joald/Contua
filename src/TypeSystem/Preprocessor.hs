@@ -23,19 +23,19 @@ import Debug.Trace
 
 preprocess :: AST -> Either String IAST
 preprocess (AST types _aliases fns) = do
-  aliases  <- preprocessAliases _aliases
+  aliases <- preprocessAliases _aliases
   let aliasMap = Map.fromList $ map unAlias aliases
       mapAliases t = runReader (applyAlias t) (traceShowId aliasMap)
       convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) =
         IFnDecl (mapAliases <$> _fnContType) (mapAliases <$> _fnType) _fnName _fnArgs $
-          if _fnName == "main"
-            then desugar _fnBody ^^$ IEVar "id"
-            else desugar _fnBody
+        if _fnName == "main"
+          then desugar _fnBody ^^$ IEVar "id"
+          else desugar _fnBody
   liftA2 IAST (map (mapTypeDecl mapAliases) <$> runExcept (mapM unContTypes types)) $
-    pure $ map convertFn fns
-    where
-      mapTypeDecl f td@TypeDecl { tdVariants, .. } = td { tdVariants = map (mapVariant f) tdVariants }
-      mapVariant f (TypeVariant name args) = TypeVariant name $ map (fix' f) args
+    runExcept (mapM (unContFn . convertFn) fns)
+  where
+    mapTypeDecl f td@TypeDecl {tdVariants, ..} = td {tdVariants = map (mapVariant f) tdVariants}
+    mapVariant f (TypeVariant name args) = TypeVariant name $ map (fix' f) args
 
 
 infixl 9 ^^$

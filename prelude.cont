@@ -22,10 +22,6 @@ map f xs = match xs with
   | [] => []
   | h:t => f h : map f t;
 
-(a -> (b -> c) -> c) -> [a] -> ([b] -> c) -> c ::
-contMap f xs c = match xs with
-  | [] => c []
-  | h:t => f h (\x . contMap f t (\rest . c (x : rest)));
 
 a -> b -> a ::
 const x _ = x;

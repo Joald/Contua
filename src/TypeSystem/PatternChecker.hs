@@ -53,6 +53,7 @@ toCoverage (ECons x xs) = toCoverage x >>= \case
 toCoverage e@(EApply e1 _) | ETypeName name <- leftmost e1 = do
   tName <- findType name
   variantArgs <- mapM toCoverage $ gatherArgs e
+  -- >< with empty map to account for types with a single ctor
   Ctors tName (Map.fromList [(name, variantArgs)]) >< Ctors tName Map.empty
 
 toCoverage (EInt _) = return ExactInt

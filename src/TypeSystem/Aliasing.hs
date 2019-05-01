@@ -23,7 +23,7 @@ applyAlias t
   | TList t' <- t = TList <$> applyAlias t'
   | TArrow t1 t2 <- t = liftA2 TArrow (applyAlias t1) (applyAlias t2)
   | TApply t1 t2 <- t = liftA2 TApply (applyAlias t1) (applyAlias t2)
-  | TCont _ _  <- t = error "all continuation types should have been "
+  | TCont t1 t2  <- t = liftA2 TCont (mapM applyAlias t1) (applyAlias t2)
   | otherwise = return t
 
 preprocessAliases :: [TypeAlias] -> Either String [TypeAlias]

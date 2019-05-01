@@ -26,7 +26,7 @@ unContType :: Type -> UnCont Type
 unContType (TCont (Just tc) t) = do
   let (args, body) = pap (typeArgs, typeBody) t
   when (null args) . throwError $ "Cannot add continuation to non-function type " ++ show t
-  return $ foldl1 (^->^) $ args ++ [body ^->^ tc, tc]
+  return $ foldr1 (^->^) $ args ++ [body ^->^ tc, tc]
 unContType (TArrow t1 t2) = liftA2 TArrow (unContType t1) (unContType t2)
 unContType (TApply t1 t2) = liftA2 TApply (unContType t1) (unContType t2)
 unContType (TList t) = fmap TList (unContType t)
