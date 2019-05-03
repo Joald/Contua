@@ -12,7 +12,7 @@ import Control.Monad.Writer (WriterT)
 
 -- | The I prefix stands for Internal (or intermediate :P)
 
-data IAST = IAST [ITypeDecl] [IFnDecl] deriving (Eq)
+data IAST = IAST { iTypeDecls :: [ITypeDecl], iFnDecls :: [IFnDecl] } deriving (Eq)
 
 instance Show IAST where
   show (IAST tDecls fnDecls) = intercalate "\n\n" $ map show tDecls ++ map show fnDecls
@@ -81,9 +81,9 @@ instance Show IExpr where
   show (IMatch pats x results) =
       "match "
     ++ show x
-    ++ " with\n"
-    ++ intercalate "\n" (zipWith (\pat res ->
-      "  | " ++ show pat ++ " => " ++ show res) pats results)
+    ++ " with "
+    ++ intercalate " " (zipWith (\pat res ->
+      " | " ++ show pat ++ " => " ++ show res) pats results)
 
 
 data Lit =

@@ -24,8 +24,8 @@ import Debug.Trace
 preprocess :: AST -> Either String IAST
 preprocess (AST types _aliases fns) = do
   aliases <- preprocessAliases _aliases
-  let aliasMap = Map.fromList $ map unAlias aliases
-      mapAliases t = runReader (applyAlias t) (traceShowId aliasMap)
+  let aliasMap =  traceShowId $ Map.fromList $ map unAlias aliases
+      mapAliases t = runReader (applyAlias t) aliasMap
       convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) =
         IFnDecl (mapAliases <$> _fnContType) (mapAliases <$> _fnType) _fnName _fnArgs $
         if _fnName == "main"
@@ -58,6 +58,9 @@ desugar (EAnd e1 e2) = IEVar andName ^^$ desugar e1 ^^$ desugar e2
 desugar (EOr e1 e2) = IEVar orName ^^$ desugar e1 ^^$ desugar e2
 desugar (EEq e1 e2) = IEVar eqName ^^$ desugar e1 ^^$ desugar e2
 desugar (ELeq e1 e2) = IEVar leqName ^^$ desugar e1 ^^$ desugar e2
+desugar (ELes e1 e2) = IEVar lesName ^^$ desugar e1 ^^$ desugar e2
+desugar (EGeq e1 e2) = IEVar leqName ^^$ desugar e2 ^^$ desugar e1
+desugar (EGre e1 e2) = IEVar lesName ^^$ desugar e2 ^^$ desugar e1
 desugar (ENeg e) = IEVar negName ^^$ desugar e
 desugar (ENot e) = IEVar notName ^^$ desugar e
 desugar (ELet x e1 e2) = IELet x (desugar e1) $ desugar e2

@@ -23,7 +23,7 @@ isBuiltin, isPrelude :: Name -> Bool
 isBuiltin s = builtinPrefix `isPrefixOf` s
 isPrelude s = preludePrefix `isPrefixOf` s
 
-addName, subName, negName, mulName, consName, concName, andName, orName, eqName, leqName, notName, ifteName :: BuiltinName
+addName, subName, negName, mulName, consName, concName, andName, orName, notName, eqName, leqName, lesName, ifteName :: BuiltinName
 addName = makeBuiltin "addition"
 subName = makeBuiltin "subtraction"
 negName = makeBuiltin "negation"
@@ -35,6 +35,7 @@ orName = makeBuiltin "logical_or"
 notName = makeBuiltin "logical_not"
 eqName = makeBuiltin "equality"
 leqName = makeBuiltin "less_than_or_equal"
+lesName = makeBuiltin "less_than"
 ifteName = makeBuiltin "if_then_else"
 
 builtinNames :: [BuiltinName]
@@ -50,5 +51,6 @@ builtinNames =
   , notName
   , eqName
   , leqName
+  , lesName
   , ifteName
   ]

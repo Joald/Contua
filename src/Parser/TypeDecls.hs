@@ -10,7 +10,6 @@ typeOperatorTable :: [[Operator Parser Type]]
 typeOperatorTable =
   [ [ binary "" TApply ]
   , [ binaryR "->" TArrow ]
-  , [ binaryN "-->" TFun ]
   ]
 
 typeTerm :: Parser Type

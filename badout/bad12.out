@@ -1,2 +1,1 @@
-Type error occured:
-Unbound type variable NonExistentType, expected [a73]
+Loop in aliases: check usage of alias A.

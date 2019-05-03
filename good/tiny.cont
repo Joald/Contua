@@ -1,13 +1,12 @@
 # --Continuation-style denotational semantics for the Tiny language.
 
-type Var = A | B | C | D | E | F | G | H; # TODO: make this better
-type Num = Num Int;
-alias Store = Loc -> Num;
+type Var = A | B | C | D | E | F | G | H | I; # TODO: make this better
+alias Store = Loc -> Int;
 type Loc = Loc Int;
 alias Env = Var -> Loc;
 
 type Expr =
-    ENum Num
+    ENum Int
   | EVar Var
   | EAdd Expr Expr
   | EMul Expr Expr
@@ -31,36 +30,67 @@ type Stmt =
    differs from the one presented on the lecture
    Semantics and verification of computer programs. -} }#
 
-Store -> Store :
+alias Cont = Store -> Store;
+
+Store :
 Stmt -> Env -> Store -> Return Store ::
-# Stmt -> Env -> Store -> (Return Store -> Store -> Store) -> Store -> Store
+# actual type is Stmt -> Env -> Store -> (Return Store -> Store) -> Store
 evalStmt stmt env s c = let cr = comp c Return in
   match stmt with
   | SSkip => cr s
   | SSeq s1 s2 => evalStmt s1 env s (\st1 . evalStmt s2 env (unReturn st1) c)
-  | SAsgn x e => evalExpr e env (\n . cr (mapsTo s (env x) n))
-  | _ => cr s;
+  | SAsgn x e => evalExpr e env (\n st . cr (mapsTo st (env x) n)) s
+  | SIfte b s1 s2 => evalBExpr b env (\res st . evalStmt (if res then s1 else s2) env st c) s
+  | SWhile b stmt => evalStmt (SIfte b (SSeq stmt (SWhile b stmt)) SSkip) env s c; # non compositional
 
 
-Store -> Store :
-Expr -> Env -> Num ::
-# Expr -> Env -> (Num -> Store -> Store) -> Store -> Store
+Cont :
+Expr -> Env -> Int ::
+# actual type is Expr -> Env -> (Int -> Cont) -> Cont
 evalExpr e env c = match e with
 | ENum x => c x
-| EVar v => \s . c (s (env v))
-| _ => c (Num 1);
+| EVar v => \state . c (state (env v)) state
+| EAdd e1 e2 => evalExpr e1 env (\l . evalExpr e2 env (\r . c (l + r)))
+| EMul e1 e2 => evalExpr e1 env (\l . evalExpr e2 env (\r . c (l * r)))
+| ESub e1 e2 => evalExpr e1 env (\l . evalExpr e2 env (\r . c (l - r)));
 
 
+Cont :
+BExpr -> Env -> Bool ::
+# actual type is BExpr -> Env -> (Bool -> Cont) -> Cont
+evalBExpr b env c = match b with
+| BBool b => c b
+| BLeq e1 e2 => evalExpr e1 env (\l . evalExpr e2 env (\r . c (l <= r)))
+| BAnd b1 b2 => evalBExpr b1 env (\l . evalBExpr b2 env (\r . c (l and r)))
+| BNot b => evalBExpr b env (\res . c (not res));
+
+#evalStmt stmt env store :: (Return Store -> Store) -> Store
+
+#comp const unReturn :: Return Store -> Store
+
+#unReturn :: Return a -> a
+#const :: a -> b -> a
+#comp :: (a -> b -> a) -> (Return a -> a) -> Return a -> b -> a
 
 
-main =
-let emptyEnv = const (Loc (-1)) in
-let emptyState = const (Num (-1)) in
-  const (evalStmt
-  (SAsgn A (ENum (Num 67)))            # stmt
-  (mapsTo emptyEnv   A       (Loc 1))  # env
-  (mapsTo emptyState (Loc 1) (Num 23)) # store
-  (comp const unReturn)                # continuation
-  emptyState                           # store passed to final continuation
-  (Loc 1)                              # result location
-);
+power =
+let emptyEnv   = const (Loc (-1)) in
+let emptyState = const (-1)       in
+  evalStmt
+  (SWhile (BLeq (EVar I) (EVar B)) (SSeq # stmt
+    (SAsgn A (EMul (ENum 2) (EVar A)))
+    (SAsgn I (EAdd (EVar I) (ENum 1)))
+  ))
+  (multiMapsTo emptyEnv                  # env
+    [A, B, I]
+    (map Loc [1, 2, 3])
+  )
+  (multiMapsTo emptyState                # store
+   (map Loc [1, 2, 3])
+   [1, 10, 1]
+  )
+  (unReturn)                  # continuation
+  (Loc 1)                                # result location
+;
+
+main = const power;

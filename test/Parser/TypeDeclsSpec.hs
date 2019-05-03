@@ -22,7 +22,9 @@ typeParserTest = describe "Type parser" $ do
     shouldParseType "AAAAAAAAAAAAAAAAAAAAAAAA" $ TName "AAAAAAAAAAAAAAAAAAAAAAAA"
   it "parses function types" $ do
     shouldParseType "x -> y" $ TVar "x" ^->^ TVar "y"
-    shouldParseType "x -> y -> y" $ TVar "x" ^->^ TVar "y" ^->^ TVar "y"
+    shouldParseType "x -> y -> y" $ TVar "x" ^->^ (TVar "y" ^->^ TVar "y")
+    shouldParseType "(a -> b) -> (c -> d) -> y -> y" $ (TVar "a" ^->^ TVar "b") ^->^ ((TVar "c" ^->^ TVar "d") ^->^ (TVar "y" ^->^ TVar "y"))
+    shouldParseType "x -> y -> y" $ TVar "x" ^->^ (TVar "y" ^->^ TVar "y")
   it "parses type application" $ do
     shouldParseType "x a" $ TVar "x" ^$$^ TVar "a"
     shouldParseType "a b c d e " $ TVar "a" ^$$^ TVar "b" ^$$^ TVar "c" ^$$^ TVar "d" ^$$^ TVar "e"

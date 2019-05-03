@@ -90,7 +90,10 @@ exprOperatorTable =
   , [ binary ":" ECons ]
   , [ InfixL $ EConcat <$ op "++" ]
   , [ binary "==" EEq ]
-  , [ binary "<=" ELeq ]
+  , [ binary "<=" ELeq
+    , binary "<"  ELes
+    , binary ">=" EGeq
+    , binary ">"  EGre ]
   , [ InfixL $ EAnd <$ keyword "and" ]
   , [ InfixL $ EOr <$ keyword "or" ]
   ]

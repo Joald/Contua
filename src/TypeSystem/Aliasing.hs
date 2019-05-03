@@ -43,8 +43,6 @@ doAliasing aliases = mapM_ go aliases >> mapM (fixM applyAliasToAlias) aliases
 
 -- | Checking if aliases form a cycle.
 
-data GraphNode a = Node a [GraphNode a]
-
 names :: Type -> [Name]
 names (TName n) = [n]
 names (TList t) = names t
@@ -53,7 +51,10 @@ names (TApply t1 t2) = names t1 ++ names t2
 names _ = []
 
 register :: Name -> Aliaser ()
-register name = modify $ Set.insert name
+register = modify . Set.insert
+
+unregister :: Name -> Aliaser ()
+unregister = modify . Set.delete
 
 throwIfSet :: Name -> Aliaser ()
 throwIfSet name = do
@@ -67,3 +68,4 @@ checkAlias (Alias name t) = do
   env <- ask
   let subAliases = names t `intersect` Map.keys env
   mapM_ checkAlias $ zipWith Alias subAliases $ map (env !) subAliases
+  unregister name

@@ -75,7 +75,6 @@ data Type =
   | TBuiltin { unBuiltin :: Name }
   | TCont (Maybe Type) Type
   | TNotFunction Type
-  | TFun Type Type -- works like arrow but is used to signify intended return type
   deriving (Eq, Ord)
 
 typeArgs :: Type -> [Type]
@@ -150,6 +149,9 @@ data Expr =
   | ENot Expr
   | EEq  Expr Expr
   | ELeq  Expr Expr
+  | ELes  Expr Expr
+  | EGre  Expr Expr
+  | EGeq  Expr Expr
   deriving (Show, Eq)
 
 gatherArgs :: Expr -> [Expr]

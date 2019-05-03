@@ -5,6 +5,8 @@
 type Bool = True | False;
 type Maybe a = Just a | Nothing;
 type Either e a = Left e | Right a;
+type Pair a b = Pair a b;
+
 
 a -> a ::
 id x = x;
@@ -31,6 +33,12 @@ mapsTo f x y a =
   if a == x
     then y
     else f a;
+
+(a -> b) -> [a] -> [b] -> a -> b ::
+multiMapsTo f xs ys = match Pair xs ys with
+| Pair [] _ => f
+| Pair _ [] => f
+| Pair (x:xs) (y:ys) => multiMapsTo (mapsTo f x y) xs ys;
 
 type Return a = Return a;
 

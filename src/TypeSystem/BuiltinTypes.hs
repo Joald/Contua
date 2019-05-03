@@ -26,6 +26,7 @@ builtinsTypes =
   , unaryType boolType -- notName
   , TNotFunction aType ^->^ TNotFunction aType ^->^ boolType -- eqName
   , intType ^->^ intType ^->^ boolType -- leqName
+  , intType ^->^ intType ^->^ boolType -- lesName
   , boolType ^->^ aType ^->^ aType ^->^ aType -- ifteName
   ]
 

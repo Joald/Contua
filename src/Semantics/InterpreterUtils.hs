@@ -1,7 +1,6 @@
 module Semantics.InterpreterUtils where
 
 import qualified Data.Map as Map
---import Data.Map (Map)
 import Semantics.TypeDefs
 import TypeSystem.TypeDefs
 import Parser.TypeDefs

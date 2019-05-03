@@ -36,11 +36,6 @@ traceM s = do
   prefix <- liftPrefix ask
   Debug.Trace.traceM $ prefix ++ s
 
-{- |
-  TODO 1: disallow recursive constants.
--}
-
-
 -- | Type system is based on the Hindley-Milner algorithm as presented here:
 -- http://dev.stephendiehl.com/fun/006_hindley_milner.html
 
@@ -68,11 +63,11 @@ throwWhenNothing :: MonadError e m => Maybe a -> e -> m ()
 throwWhenNothing ma err = when (isNothing ma) $ throwError err
 
 freshTypeName :: TypeCheck Type
-freshTypeName =
-  do IState n <- get
-     put . IState $ n + 1
-     traceM $ "getting fresh type " ++ show n ++ "!"
-     return . TVar $ "a" ++ show n
+freshTypeName = do
+  IState n <- get
+  put . IState $ n + 1
+  traceM $ "getting fresh type " ++ show n ++ "!"
+  return . TVar $ "a" ++ show n
 
 typesOfBuiltins :: TypeCheck (Map BuiltinName Scheme)
 typesOfBuiltins = Map.fromList . zip builtinNames . map generalizeBuiltin <$> mapM preprocessType builtinsTypes
@@ -110,37 +105,41 @@ getCtorTypes types = do
                       ) types'
 
 doTypeChecking :: IAST -> TypeCheck ()
-doTypeChecking ast@(IAST types fns) =
-  do -- Check for name clashes.
-     let globalIdentifiers = map ifnName fns ++ concatMap (map tvName . tdVariants) types
-     throwWhenMultipleEqual globalIdentifiers "program"
-     let globalTypes = map tdName types ++ Map.keys builtinTypes
-     throwWhenMultipleEqual globalTypes "program"
-     -- Perform kind checking.
-     void(liftExcept KindError $ kindCheckIAST ast)
-     ctorMap <- getCtorTypes types
-     let  -- Apply continuation modification to functions with type annotations
-        contFns  = map (\fn -> fn { ifnType = case ifnContType fn of
-          Nothing -> convertTypeToCont (ifnName fn) <$> ifnType fn <*> pure (TVar "")
-          Just ct -> convertTypeToCont (ifnName fn) <$> ifnType fn <*> pure ct
-        }) fns
-        typeMap = mapFromDeclList types
+doTypeChecking ast@(IAST types fns) = do
+  -- Check for name clashes.
+  let globalIdentifiers = map ifnName fns ++ concatMap (map tvName . tdVariants) types
+  throwWhenMultipleEqual globalIdentifiers "program"
+  let globalTypes = map tdName types ++ Map.keys builtinTypes
+  throwWhenMultipleEqual globalTypes "program"
+  -- Perform kind checking.
+  void(liftExcept KindError $ kindCheckIAST ast)
+  ctorMap <- getCtorTypes types
+  let  -- Apply continuation modification to functions with type annotations
+    contFns  = map (\fn -> fn { ifnType = case ifnContType fn of
+      Nothing -> convertTypeToCont (ifnName fn) <$> ifnType fn <*> pure (TVar "")
+      Just ct -> convertTypeToCont (ifnName fn) <$> ifnType fn <*> pure ct
+    }) fns
+    typeMap = mapFromDeclList types
 
-     finalFns <- preprocessFns contFns
-     traceM $ "finalFns: " ++ showList' finalFns ++ "\n"
-     schemeMap <- Map.fromList <$>
-           forM finalFns (\t -> do
-             name <- freshTypeName
-             let t' = fromMaybe name (ifnType t)
-             s <- generalizeType t'
-             return (ifnName t, s))
-     typesOfBuiltins' <- typesOfBuiltins
-     traceM $ "types of builtins: " ++ showMap typesOfBuiltins' ++ "\n"
-     ((main, s), m) <- listen $ local (const $ TypeEnv (typeMap <> builtinTypeDecls) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins']) $ typeCheckFunctions finalFns
-     throwWhenNothing main EntryPointNotFoundError
-     traceM $ "Found type " ++ show (fromJust main) ++ " for the main function."
-     traceM $ "Final subst is:\n" ++ showMap (unSubst s)
-     traceM $ "\n\nfinal types are:\n" ++ showMap (fix' (apply s) m)
+  finalFns <- preprocessFns contFns
+  traceM $ "finalFns: " ++ showList' finalFns ++ "\n"
+  schemeMap <- Map.fromList <$>
+       forM finalFns (\t -> do
+         name <- freshTypeName
+         let t' = fromMaybe name (ifnType t)
+         s <- generalizeType t'
+         return (ifnName t, s))
+  typesOfBuiltins' <- typesOfBuiltins
+  traceM $ "types of builtins: " ++ showMap typesOfBuiltins' ++ "\n"
+  ((main, s), m) <- listen $ local (const $ TypeEnv (typeMap <> builtinTypeDecls) $ Map.unions [ctorMap, schemeMap, typesOfBuiltins']) $ typeCheckFunctions finalFns
+  throwWhenNothing main EntryPointNotFoundError
+  traceM $ "Found type " ++ show (fromJust main) ++ " for the main function."
+  traceM $ "Final subst is:\n" ++ showMap (unSubst s)
+  finalTypes <- mapMapM generalizeType $ fix' (apply s) m
+  traceM $ "\n\nfinal types are:\n" ++ showMap finalTypes
+  -- verify once more to account for non-annotated functions
+  void $ local (const $ TypeEnv (typeMap <> builtinTypeDecls) $ Map.unions [ctorMap, finalTypes, typesOfBuiltins']) $ typeCheckFunctions finalFns
+
 
 convertTypeToCont :: Name -> Type -> Type -> Type
 convertTypeToCont name t contType
@@ -152,34 +151,34 @@ convertTypeToCont name t contType
 
 typeCheckFunctions :: [IFnDecl] -> TypeCheck (Maybe Type, TypeSubst)
 typeCheckFunctions [] = return (Nothing, nullSubst)
-typeCheckFunctions (fn:fns) =
-  do (t, s1) <- typeCheckFunction fn
-     s <- generalizeType t
-     traceM $ "Found type scheme " ++ show s ++ " for function " ++ ifnName fn
-     (mt, s2) <- local (mapSchemeEnv $ Map.insert (ifnName fn) s) . localWithSubst s1 $ typeCheckFunctions fns
-     return $ if ifnName fn == "main"
-                then (Just t, s2 `compose` s1)
-                else (mt, s2 `compose` s1)
+typeCheckFunctions (fn:fns) = do
+  (t, s1) <- typeCheckFunction fn
+  s <- generalizeType t
+  traceM $ "Found type scheme " ++ show s ++ " for function " ++ ifnName fn
+  (mt, s2) <- local (mapSchemeEnv $ Map.insert (ifnName fn) s) . localWithSubst s1 $ typeCheckFunctions fns
+  return $ if ifnName fn == "main"
+            then (Just t, s2 `compose` s1)
+            else (mt, s2 `compose` s1)
 
 
 typeCheckFunction :: IFnDecl -> TypeCheck (Type, TypeSubst)
-typeCheckFunction (IFnDecl _ (Just t) name args body) =
-  do traceM ("\nNOW TYPE CHECKING: " ++ name ++ "...")
-     (funType, s) <- doTypeCheckFunction args body
-     traceM $ "Checker found type " ++ show funType
-     s' <- unifyTypes funType t
-     let s'' = s' `compose` s
-     tell $ Map.singleton name $ apply s'' funType
-     return (apply s'' funType, s'')
-typeCheckFunction (IFnDecl _ Nothing name args body) =
-  do traceM ("NOW INFERRING: " ++ name ++ "...")
-     (funType, s) <- doTypeCheckFunction args body
-     traceM $ "Inferrer found type " ++ show funType
-     s' <- if isBuiltin name || isPrelude name
-            then return nullSubst
-            else verifyContinuativity funType
-     tell $ Map.singleton name funType
-     return (funType, s' `compose` s)
+typeCheckFunction (IFnDecl _ (Just t) name args body) = do
+  traceM ("\nNOW TYPE CHECKING: " ++ name ++ "...")
+  (funType, s) <- doTypeCheckFunction args body
+  traceM $ "Checker found type " ++ show funType
+  s' <- unifyTypes funType t
+  let s'' = s' `compose` s
+  tell $ Map.singleton name $ apply s'' funType
+  return (apply s'' funType, s'')
+typeCheckFunction (IFnDecl _ Nothing name args body) = do
+  traceM ("NOW INFERRING: " ++ name ++ "...")
+  (funType, s) <- doTypeCheckFunction args body
+  traceM $ "Inferrer found type " ++ show funType
+  s' <- if isBuiltin name || isPrelude name
+        then return nullSubst
+        else verifyContinuativity funType
+  tell $ Map.singleton name funType
+  return (funType, s' `compose` s)
 
 verifyContinuativity :: Type -> TypeCheck TypeSubst
 verifyContinuativity t = case typeArgs t of
@@ -339,19 +338,26 @@ inferType (IEVar x) = trace ("inferType var " ++ x ) $
 
 inferType (ILit (LInt _)) = trace "inferType int literal" $ return (intType, nullSubst)
 inferType (ILit LEmptyList) = trace "inferType empty list literal" $ (, nullSubst) <$> preprocessType aListType
-inferType (IMatch pats x results) =
-  do (t1, s1) <- inferType x
-     traceM $ "==inferType IMatch: inferred type " ++ show t1 ++ " for matcher " ++ show x
-     (sm, _s2) <- mapAndUnzipM (\pat -> localWithSubst s1 $ checkPattern pat t1) pats
-     let s2 = foldr compose nullSubst _s2
-     traceM $ "==inferType IMatch: checked patterns {" ++ intercalate ", " (map show pats) ++ "} and got the following identifiers:\n" ++ showList' sm ++ "\n"
-     (t2, s3) <- unzip <$> zipWithM (\sm' res -> local (mapSchemeEnv (Map.union sm')) $ localWithSubst (compose s2 s1) $ inferType res) sm results
-     let s4 = foldl1 compose s3
-     s5 <- foldAdjacentM unifyTypes compose nullSubst t2
-     let finalSubst = s5 `compose` s4 `compose` s2 `compose` s1
-     traceM $ "==inferType IMatch: final subst is " ++ show finalSubst
-     traceM $ "==inferType IMatch: inferred type " ++ show (head t2) ++ " for match with " ++ show x
-     return (apply finalSubst $ head t2, finalSubst)
+inferType (IMatch pats x results) = do
+  (t1, s1) <- inferType x
+  traceM $ "==inferType IMatch: inferred type " ++ show t1 ++ " for matcher " ++ show x
+  (sm, _s2) <- mapAndUnzipM (\pat -> localWithSubst s1 $ checkPattern pat t1) pats
+  let s2 = foldr compose nullSubst _s2
+  traceM $ "==inferType IMatch: checked patterns {" ++ intercalate ", " (map show pats) ++ "} and got the following identifiers:\n" ++ showList' sm ++ "\n"
+  (t2, s3) <- inferPatterns sm results
+  let finalSubst = s3 `compose` s2 `compose` s1
+  traceM $ "==inferType IMatch: final subst is " ++ show finalSubst
+  traceM $ "==inferType IMatch: inferred type " ++ show t2 ++ " for match with " ++ show x
+  return (apply finalSubst t2, finalSubst)
+
+inferPatterns :: [SchemeMap] -> [IExpr] -> TypeCheck (Type, TypeSubst)
+inferPatterns [sc] [e] = local (mapSchemeEnv (sc <>)) $ inferType e
+inferPatterns (sc:scs) (e:es) = do
+  (t1, s1) <- inferPatterns [sc] [e]
+  (t2, s2) <- localWithSubst s1 $ inferPatterns scs es
+  s3 <- unifyTypes (apply s2 t1) t2
+  return (apply s3 t2, s3 `compose` s2 `compose` s1)
+inferPatterns _ _ = error "invalid pattern list: this cannot happen"
 
 checkPattern :: Pattern -> Type -> TypeCheck (SchemeMap, TypeSubst)
 checkPattern (PLit LEmptyList) t = do
@@ -361,18 +367,18 @@ checkPattern (PLit LEmptyList) t = do
 checkPattern (PLit (LInt _)) t = (Map.empty, ) <$> unifyTypes t intType
 checkPattern (PVar x) t | x /= "_" = return (Map.singleton x $ ForAll [] t, nullSubst)
 checkPattern (PVar _) _ = return (Map.empty, nullSubst)
-checkPattern p@(PTVariant name args) t =
-  do env <- ask
-     let ms = Map.lookup name $ schemeDict env
-     throwWhenNothing ms $ UnboundVariableError name
-     let scheme = fromJust ms
-     t' <- instantiateType scheme
-     let tArgs = typeArgs t'
-     s <- unifyTypes t (typeBody t')
-     (maps, substs) <- unzip <$> zipWithM checkPattern args (map (apply s) tArgs)
-     let names = concatMap Map.keys maps
-     throwWhenMultipleEqual names (show p)
-     return (mconcat maps, foldl compose nullSubst substs)
+checkPattern p@(PTVariant name args) t = do
+  env <- ask
+  let ms = Map.lookup name $ schemeDict env
+  throwWhenNothing ms $ UnboundVariableError name
+  let scheme = fromJust ms
+  t' <- instantiateType scheme
+  let tArgs = typeArgs t'
+  s <- unifyTypes t (typeBody t')
+  (maps, substs) <- unzip <$> zipWithM checkPattern args (map (apply s) tArgs)
+  let names = concatMap Map.keys maps
+  throwWhenMultipleEqual names (show p)
+  return (mconcat maps, foldl compose s substs)
 
 checkPattern (PCons x xs) t =
   do t' <- freshTypeName

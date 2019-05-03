@@ -43,7 +43,7 @@ parseTypeDecls = parseHelper [TypeDecl "Parse error" [] []] $ many typeDecl
 parseType :: String -> Type
 parseType = parseHelper (TName "Parse error") type_
 parseAST :: String -> AST
-parseAST = parseHelper (AST [] []) program
+parseAST = parseHelper (AST [] [] []) program
 
 fooTest = "type Foo b a = Bar (b a) Int | Bar2 (a Int);"
 fooTest' = "type Foo a b = Bar (b a) Int | Bar2 (a Int);"

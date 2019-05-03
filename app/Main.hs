@@ -22,7 +22,7 @@ data ProgramError =
     ParseError ParserError
   | PatternCoverageError PatternError
   | TypeError TypeSystemError
-  | ContinuationError String
+  | PreprocessingError String
 --  | SemanticError
 
 instance Show ProgramError where
@@ -30,7 +30,7 @@ instance Show ProgramError where
   show (TypeError err) = "Type error occured:\n" ++ show err
 --  show (SemanticError) = "Runtime error occured:\n"
   show (PatternCoverageError s) = s
-  show (ContinuationError s) = s
+  show (PreprocessingError s) = s
 
 showResult :: Show a => Either ProgramError a -> String
 showResult = either show show
@@ -46,22 +46,23 @@ mapPrelude (AST types als fns) = AST types als $ map (\fn -> fn { fnName = makeP
 
 getRight :: Either e a -> a
 getRight (Right x) = x
+getRight _ = error "getRight called with a Left"
 
 doInterpret :: Either ProgramError IAST -> IO Value
 doInterpret res = if isRight res then interpretAST (getRight res) else return (VAlg "Error occured, exiting!" [])
 
 doChecks :: String -> String -> String -> Either ProgramError IAST
-doChecks fname contents preludeContents =
-  do prelude <- mapPrelude <$> parseRealProgram preludeFileName preludeContents
-     ast <- parseRealProgram fname contents
-     let full = composeASTs prelude ast
-     iast <- first ContinuationError $ preprocess full
-     let typeEnv = mapFromDeclList $ typeDecls full
-     traceM $ "Full AST is: " ++ show full
-     traceM $ "Full IAST is: " ++ show iast
-     first PatternCoverageError $ runCoverageCheck typeEnv $ checkPatterns full
-     first TypeError $ typeCheck iast
-     return iast
+doChecks fname contents preludeContents = do
+  prelude <- mapPrelude <$> parseRealProgram preludeFileName preludeContents
+  ast <- parseRealProgram fname contents
+  let full = composeASTs prelude ast
+  iast <- first PreprocessingError $ preprocess full
+  let typeEnv = mapFromDeclList $ iTypeDecls iast
+  traceM $ "Full AST is: " ++ show full
+  traceM $ "Full IAST is: " ++ show iast
+  first PatternCoverageError $ runCoverageCheck typeEnv $ checkPatterns full
+  first TypeError $ typeCheck iast
+  return iast
 
 -- prints to stdout to separate from trace output;
 -- TODO: replace by die when removing trace

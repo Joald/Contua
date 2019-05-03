@@ -1,2 +1,2 @@
 Type error occured:
-Forbidden non-continuation style type of top-level function Int -> Int
+Forbidden non-continuation style type of top-level function non-fn{Int} -> Int
