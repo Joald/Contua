@@ -1,0 +1,5 @@
+Rozwiązanie jest oddane jako projekt stack.
+Jako parametry można podać więcej niż jeden plik, wtedy zostaną one połączone w jeden duży plik, zatem należy nie dopuścić do konfliktów nazw (w przeciwnym wypadku interpreter wypisze stosowny komunikat).
+W szczególności należy podać tylko jeden plik zawierający funkcję main.
+Względem oryginalnego planu rozwiązanie różni się dodatkowymi elementami: możliwość aliasowania typów oraz specjalny operator do oznaczania typów kontynuacyjnych.
+W folderze lang_overview znajduje się odpowiednio poprawiony projekt języka.

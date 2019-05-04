@@ -44,11 +44,13 @@
 	\section{The syntax}
 	\begin{align*}
 	% program
-	\texttt{program}  =\ & \texttt{\{ \color{gray}typeDecl \color{black} | \color{red}funDecl \color{black} \}}\\
+	\texttt{program}  =\ & \texttt{\{ \color{gray}typeDecl \color{black} | \color{red}funDecl \color{black} | \color{Cerulean}aliasDecl \color{black} \}}\\
 	% funDecl
 	\texttt{\color{red}funDecl\color{black}} =\ & \texttt{[\color{ForestGreen}type \color{black} ":"] [\color{ForestGreen}type \color{black} '::'] id \{ id \} "=" \color{RoyalPurple}expr \color{black}} ";"\\
 	% typeDecl
 	\texttt{\color{gray}typeDecl\color{black}} =\ &\texttt{\color{blue}'type' \color{black} ID \{ id \} "=" \color{RubineRed}typeCtor \color{black} \{ "|" \color{RubineRed}typeCtor \color{black} \}} ";"\\
+	% aliasDecl
+	\texttt{\color{Cerulean}aliasDecl\color{black}} =\ &\texttt{\color{blue}'alias' \color{black} ID "=" \color{ForestGreen}type \color{black} ";"}\\
 	% type
 	\texttt{\color{ForestGreen}type \color{black}} =\ &\texttt{\color{CadetBlue}basicType \color{black} | (\color{ForestGreen}type \color{black} \{ '->' \color{ForestGreen}type \color{black} \}) | "(" \color{ForestGreen}type \color{black} ")" | "@\{" \color{ForestGreen}type \color{black} "\}(" \color{ForestGreen}type \color{black} ")"}\\
 	% basicType
@@ -275,6 +277,5 @@ main = \c .
 
 	\end{lstlisting}
 	\section{Points}
-	I plan to implement all the features mentioned in the task description required for 35 points except
-	for type synonyms, which are not necessary and runtime errors which will are not needed in the language, in particular everything already mentioned in the language details. It might be also worth considering to add a do notation like in haskell, but for continuations (it is visible in the main function that it could simplify code greatly), however it was a last-second consideration and if I find the time, I'll do that.
+	I plan to implement all the features mentioned in the task description required for 35 points and runtime errors which will are not needed in the language, in particular everything already mentioned in the language details. It might be also worth considering to add a do notation like in haskell, but for continuations (it is visible in the main function that it could simplify code greatly), however it was a last-second consideration and if I find the time, I'll do that.
 \end{document}
