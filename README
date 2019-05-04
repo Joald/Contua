@@ -3,3 +3,6 @@ Jako parametry można podać więcej niż jeden plik, wtedy zostaną one połąc
 W szczególności należy podać tylko jeden plik zawierający funkcję main.
 Względem oryginalnego planu rozwiązanie różni się dodatkowymi elementami: możliwość aliasowania typów oraz specjalny operator do oznaczania typów kontynuacyjnych.
 W folderze lang_overview znajduje się odpowiednio poprawiony projekt języka.
+Interpreter najpierw parsuje pliki, których nazwy są na wejściu, następnie zamienia AST na prostszą w użyciu reprezentację, po czym rozpoczyna kontrolę typów.
+Kontrola typów najpierw sprawdza czy kindy podanych typów się zgadzają, następnie przydziela każdej funkcji najlepszy typ jaki może i odpala algorytm rekonstrukcji, zbierając po drodze informacje o typach funkcji. Na koniec jeszcze raz przechodzi wszystkie funkcje na wypadek gdyby jakaś funkcja została użyta przed sprawdzeniem jej typu.
+Jeśli po drodze nie wystąpiły żadne błędy, następuje ewaluacja funkcji main. Ta część programu jest najprostsza, jako że język jest czysty. Wynik wykonania jest wyświetlony na standardowe wyjście.

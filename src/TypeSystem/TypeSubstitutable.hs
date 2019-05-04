@@ -8,10 +8,8 @@ import qualified Data.Map as Map
 import Data.Set (Set, (\\))
 import qualified Data.Set as Set
 
-
 import Parser.TypeDefs
 import TypeSystem.TypeDefs
-import Debug.Trace (trace)
 
 
 newtype TypeSubst = Subst { unSubst :: Map Name Type } deriving (Eq, Show)
@@ -58,7 +56,7 @@ instance TypeSubstitutable Type where
   fv (TVar n)       = Set.singleton n
   fv (TName _)      = Set.empty
   fv (TBuiltin _)   = Set.empty
-  fv t              = trace ("PALISIEKURWA " ++ show t) Set.empty
+  fv _              = Set.empty
 
   apply subst (TArrow t1 t2) = TArrow (apply subst t1) (apply subst t2)
   apply subst (TApply t1 t2) = TApply (apply subst t1) (apply subst t2)
@@ -69,7 +67,7 @@ instance TypeSubstitutable Type where
 
 instance TypeSubstitutable TypeDecl where
   fv = undefined
-  apply subst td@(TypeDecl { tdVariants, ..}) = td { tdVariants = apply subst tdVariants }
+  apply subst td@TypeDecl{tdVariants, ..} = td { tdVariants = apply subst tdVariants }
 
 
 instance TypeSubstitutable TypeVariant where

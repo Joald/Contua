@@ -1,23 +1,21 @@
 module Semantics.InterpreterUtilsSpec where
 
 import qualified Data.Map as Map
-import Data.Map (Map)
-
 import Test.Hspec
 import Control.Monad.Reader (runReaderT)
+import GHC.IO (unsafePerformIO)
+
 import TypeSystem.TypeDefs
 import Semantics.TypeDefs
 import Semantics.Interpreter
 import Semantics.InterpreterUtils
 import Semantics.Builtins (addName)
-import GHC.IO (unsafePerformIO)
-import Control.Monad.State
 
 spec :: Spec
 spec = envTest
 
 runEval :: Eval a -> Env -> a
-runEval x env = unsafePerformIO (evalStateT (runReaderT (runReaderT x env) env) 0)
+runEval x env = unsafePerformIO (runReaderT (runReaderT x env) env)
 
 envTest :: SpecWith ()
 envTest =

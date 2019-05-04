@@ -16,7 +16,7 @@ import Parser.TypeDecls
 
 
 {- | This is the Contua language, the parser part.
-  Much of it, especially the Utils module has been taken directly from:
+  Much of it, especially the Utils module has been adapted from:
   https://markkarpov.com/megaparsec/megaparsec.html
 -}
 

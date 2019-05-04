@@ -123,7 +123,8 @@ instance Show TypeSystemError where
   show (ForbiddenRecursiveConstant name) = "Forbidden recursive use of constant" ++ name
   show (NonContinuation t) = "Forbidden non-continuation style type of top-level function " ++ show t
   show (FunctionComparison t) = "Cannot compare objects of type " ++ show t
-type TypeCheck a = WriterT (Map Name Type) (ReaderT TypeEnv (StateT InferenceState (ReaderT String (Except TypeSystemError)))) a
+
+type TypeCheck a = WriterT (Map Name Type) (ReaderT TypeEnv (StateT InferenceState (Except TypeSystemError))) a
 
 newtype InferenceState = IState { counter :: Int }
 

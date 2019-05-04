@@ -16,13 +16,12 @@ import TypeSystem.UnContifier
 
 import TypeSystem.Aliasing
 
-import Debug.Trace
 import Control.Monad.Except
 
 preprocess :: AST -> Either String IAST
 preprocess (AST types _aliases fns) = do
   aliases <- preprocessAliases _aliases
-  let aliasMap =  traceShowId $ Map.fromList $ map unAlias aliases
+  let aliasMap = Map.fromList $ map unAlias aliases
       mapAliases t = runReader (applyAlias t) aliasMap
       convertFn (FunDecl _fnContType _fnType _fnName _fnArgs _fnBody) =
         IFnDecl (mapAliases <$> _fnContType) (mapAliases <$> _fnType) _fnName _fnArgs $

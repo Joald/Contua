@@ -7,7 +7,6 @@ import Data.Map (Map)
 import Control.Monad.Reader
 import Data.List (intercalate)
 import Semantics.Builtins (builtinPrefix)
-import Control.Monad.State (StateT)
 
 data Value =
     VInt Int
@@ -69,4 +68,4 @@ instance Show Function where
   show (Partial args fn) = "partial{" ++ show fn ++ " $ " ++ show args ++ "}"
 
 
-type Eval a = ReaderT Env (ReaderT Env (StateT Int IO)) a
+type Eval a = ReaderT Env (ReaderT Env IO) a

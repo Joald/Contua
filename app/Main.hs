@@ -11,11 +11,9 @@ import TypeSystem.Preprocessor (preprocess)
 import TypeSystem.TypeSystem (typeCheck)
 import Semantics.Interpreter (interpretAST)
 import Semantics.TypeDefs
-import Debug.Trace (traceM)
-import System.IO
 import Data.Either (isLeft, isRight)
 import Control.Monad (when, unless, zipWithM)
-import System.Exit (exitFailure)
+import System.Exit (die)
 import System.Directory
 
 data ProgramError =
@@ -23,12 +21,10 @@ data ProgramError =
   | PatternCoverageError PatternError
   | TypeError TypeSystemError
   | PreprocessingError String
---  | SemanticError
 
 instance Show ProgramError where
   show (ParseError err) = "Parse error occured:\n" ++ err
   show (TypeError err) = "Type error occured:\n" ++ show err
---  show (SemanticError) = "Runtime error occured:\n"
   show (PatternCoverageError s) = s
   show (PreprocessingError s) = s
 
@@ -58,21 +54,14 @@ doChecks fname contents preludeContents = do
   let full = foldl1 composeASTs (prelude : ast)
   iast <- first PreprocessingError $ preprocess full
   let typeEnv = mapFromDeclList $ iTypeDecls iast
-  traceM $ "Full AST is: " ++ show full
-  traceM $ "Full IAST is: " ++ show iast
   first PatternCoverageError $ runCoverageCheck typeEnv $ checkPatterns full
   first TypeError $ typeCheck iast
   return iast
 
--- prints to stdout to separate from trace output;
--- TODO: replace by die when removing trace
-printAndExit :: String -> IO ()
-printAndExit s = putStrLn s >> exitFailure
-
 assertFileExists :: String -> IO ()
 assertFileExists name = do
   exists <- doesFileExist name
-  unless exists . printAndExit $ "Cannot find file \"" ++ name ++ "\"."
+  unless exists . die $ "Cannot find file \"" ++ name ++ "\"."
 
 
 main :: IO ()
@@ -83,7 +72,6 @@ main = do
   contents <- mapM readFile fileNames
   preludeContents <- readFile preludeFileName
   let res = doChecks fileNames contents preludeContents
-  when (isLeft res) . printAndExit $ showResult res
+  when (isLeft res) . die $ showResult res
   v <- doInterpret res
   print v
-  hFlush stderr

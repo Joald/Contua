@@ -20,4 +20,3 @@ spec = describe "generic utils" $
     it "updates environments" $
       leTest 69 Map.empty `shouldBe` 70
 
---localEnvTest :: KindChecka

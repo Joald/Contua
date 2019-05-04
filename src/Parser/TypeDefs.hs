@@ -71,7 +71,6 @@ data Type =
   | TList Type
   | TArrow Type Type
   | TApply Type Type
-  | TBottom
   | TBuiltin { unBuiltin :: Name }
   | TCont (Maybe Type) Type
   | TNotFunction Type
@@ -97,7 +96,6 @@ instance Show Type where
   show (TList t) = "[" ++ show t ++ "]"
   show (TArrow t1 t2) = showType t1 ++ " -> " ++ show t2
   show (TApply t1 t2) = show t1 ++ " " ++ show t2
-  show TBottom = "⊥"
   show (TBuiltin name) = "" ++ name ++ ""
   show (TCont tc t) = show t ++ " with continuation " ++ show tc
   show (TNotFunction t) = "non-fn{" ++ show t ++ "}"

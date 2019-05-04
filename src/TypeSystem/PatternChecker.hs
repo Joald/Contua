@@ -5,15 +5,12 @@ module TypeSystem.PatternChecker where
 import qualified Data.Map as Map
 import Data.Map (Map)
 
-
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Maybe (isNothing, fromJust)
 import Data.List ((\\), intercalate)
 
 import Parser.TypeDefs
-import Debug.Trace (traceM)
-
 
 type PatternError = String
 
@@ -155,9 +152,6 @@ Ctors lName lMap >< Ctors rName rMap =
      let mtDecl = Map.lookup lName env
      when (isNothing mtDecl) . throwError $ "Unbound type name: " ++ lName
      let (TypeDecl _ _ variants) = fromJust mtDecl
-     traceM $ "Merging " ++ show lMap ++ " with " ++ show rMap
-     traceM $ "merged variants are: " ++ show newMap
-     traceM $ "variants: " ++ show variants
      return $ if all (== Anything) (concat $ Map.elems newMap) && haveSameElements (map tvName variants) (Map.keys newMap)
                 then Anything
                 else Ctors lName newMap
