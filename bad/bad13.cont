@@ -1,0 +1,3 @@
+# wrong use of continuation notation
+@{Int}(Int) ::
+a = 1;

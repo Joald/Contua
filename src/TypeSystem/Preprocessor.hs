@@ -4,10 +4,7 @@
 module TypeSystem.Preprocessor where
 
 import Data.Bifunctor (first, second)
-import Control.Monad.Except (Except, throwError, runExcept)
-import Control.Monad (when)
 import Control.Applicative (liftA2)
-import Data.Map (Map)
 import qualified Data.Map as Map
 
 import TypeSystem.TypeDefs
@@ -20,6 +17,7 @@ import TypeSystem.UnContifier
 import TypeSystem.Aliasing
 
 import Debug.Trace
+import Control.Monad.Except
 
 preprocess :: AST -> Either String IAST
 preprocess (AST types _aliases fns) = do
@@ -64,7 +62,7 @@ desugar (EGre e1 e2) = IEVar lesName ^^$ desugar e2 ^^$ desugar e1
 desugar (ENeg e) = IEVar negName ^^$ desugar e
 desugar (ENot e) = IEVar notName ^^$ desugar e
 desugar (ELet x e1 e2) = IELet x (desugar e1) $ desugar e2
-desugar (EIf b e1 e2) = IEApply (IEApply (IEVar ifteName ^^$ desugar b) $ desugar e1) $ desugar e2
+desugar (EIf b e1 e2) = IIf (desugar b) (desugar e1) (desugar e2)
 desugar (EMatch e pats) = desugarMatch e pats
 
 desugarMatch :: Expr -> [(Expr, Expr)] -> IExpr

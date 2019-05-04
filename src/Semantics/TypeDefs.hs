@@ -7,7 +7,6 @@ import Data.Map (Map)
 import Control.Monad.Reader
 import Data.List (intercalate)
 import Semantics.Builtins (builtinPrefix)
-import Utils (showMap)
 import Control.Monad.State (StateT)
 
 data Value =
@@ -64,10 +63,10 @@ instance Eq Function where
 
 instance Show Function where
   show (Decl args body) = "(" ++ unwords args ++ ") => {" ++ show body ++ "}"
-  show (Closure arg body env) = arg ++ " => {" ++ show body ++ "}"-- over env:\n" ++ showMap env
+  show (Closure arg body _) = arg ++ " => {" ++ show body ++ "}"
   show (Builtin name _) = drop (length builtinPrefix) name
   show (Ctor name _) = "ctor{" ++ name ++ "}"
   show (Partial args fn) = "partial{" ++ show fn ++ " $ " ++ show args ++ "}"
 
 
-type Eval a = ReaderT Env (StateT Int IO) a
+type Eval a = ReaderT Env (ReaderT Env (StateT Int IO)) a

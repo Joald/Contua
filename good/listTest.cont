@@ -1,22 +1,12 @@
-type TwoLists a b = TwoLists [a] [b];
-
-c :
-@{c}(a -> b) -> [a] -> [b] ::
-contMap f xs c = match xs with
-  | [] => c []
-  | h:t => f h (\x . contMap f t (\rest . c (x : rest)));
-
-
-[a] -> Maybe a ::
-safeHead xs c = match xs with
-  | h : _ => c (Just h)
-  | [] => c Nothing;
+{#
+  To run this, import library.cont as well.
+}#
 
 d :
 @{d}(a -> b -> c) -> [a] -> [b] -> Maybe c ::
-joinSafeHeads f xs ys c = match TwoLists xs ys with
-  | TwoLists (h1:_) (h2:_) => f h1 h2 (\x.c (Just x))
-  | TwoLists _ _ => c Nothing;
+joinSafeHeads f xs ys c = match Pair xs ys with
+  | Pair (h1:_) (h2:_) => f h1 h2 (\x.c (Just x))
+  | Pair _ _ => c Nothing;
 
 
 plusThree x c = c (x + 3);
@@ -26,5 +16,5 @@ add x y c = c (x + y);
 Maybe Int ::
 main = \c .
   contMap plusThree [3, 1, 3, 7] \l .
-  joinSafeHeads add l [4, 2, 12] c;
+  joinSafeHeads add l (4 : 2 : 12 : []) c;
 

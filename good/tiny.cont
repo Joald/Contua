@@ -25,10 +25,10 @@ type Stmt =
   | SIfte BExpr Stmt Stmt
   | SWhile BExpr Stmt;
 
-{# {- | Due to the limitations of the type system
+{# Due to the limitations of the type system
    the statement denotation function
    differs from the one presented on the lecture
-   Semantics and verification of computer programs. -} }#
+   Semantics and verification of computer programs. }#
 
 alias Cont = Store -> Store;
 
@@ -63,15 +63,6 @@ evalBExpr b env c = match b with
 | BLeq e1 e2 => evalExpr e1 env (\l . evalExpr e2 env (\r . c (l <= r)))
 | BAnd b1 b2 => evalBExpr b1 env (\l . evalBExpr b2 env (\r . c (l and r)))
 | BNot b => evalBExpr b env (\res . c (not res));
-
-#evalStmt stmt env store :: (Return Store -> Store) -> Store
-
-#comp const unReturn :: Return Store -> Store
-
-#unReturn :: Return a -> a
-#const :: a -> b -> a
-#comp :: (a -> b -> a) -> (Return a -> a) -> Return a -> b -> a
-
 
 power =
 let emptyEnv   = const (Loc (-1)) in

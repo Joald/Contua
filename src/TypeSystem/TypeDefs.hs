@@ -34,6 +34,7 @@ data IExpr =
   | IEVar Name
   | IMatch [Pattern] IExpr [IExpr]
   | ILit Lit
+  | IIf IExpr IExpr IExpr
   deriving (Eq)
 
 data Pattern =
@@ -82,9 +83,9 @@ instance Show IExpr where
       "match "
     ++ show x
     ++ " with "
-    ++ intercalate " " (zipWith (\pat res ->
+    ++ unwords (zipWith (\pat res ->
       " | " ++ show pat ++ " => " ++ show res) pats results)
-
+  show (IIf b e1 e2) = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
 
 data Lit =
     LInt Int

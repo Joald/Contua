@@ -11,12 +11,13 @@ import Semantics.Interpreter
 import Semantics.InterpreterUtils
 import Semantics.Builtins (addName)
 import GHC.IO (unsafePerformIO)
+import Control.Monad.State
 
 spec :: Spec
 spec = envTest
 
 runEval :: Eval a -> Env -> a
-runEval x env = unsafePerformIO (runReaderT x env)
+runEval x env = unsafePerformIO (evalStateT (runReaderT (runReaderT x env) env) 0)
 
 envTest :: SpecWith ()
 envTest =

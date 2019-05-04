@@ -27,7 +27,7 @@ interpretAST (IAST types fns) = trace "\n\n======\nNow interpreting...\n======\n
   let Just main = find ((== "main") . ifnName) fns
       env = preprocessEnv $ initFns fns <> initCtors types <> getBuiltins
   traceIO ("env is " ++ showMap env ++ "\nand main is " ++ seqShow main ++ "\n\n")
-  evalStateT (runReaderT (eval $ ifnBody main) env) 0
+  evalStateT (runReaderT (runReaderT (eval $ ifnBody main) env) env) 0
 
 incr, decr :: MonadState Int m => m ()
 incr = modify (+ 2)
@@ -73,7 +73,7 @@ eval (IEVar x) = do
   mv'' <- asks . Map.lookup $ makeBuiltin x
   let v = fromMaybe (fromMaybe (fromJust mv'') mv') mv
   ret <- if isThunk v
-   then eval (getExpr v)
+   then withBaseEnv $ eval (getExpr v)
    else return v
   printt $ "Found value " ++ seqShow ret ++ " for variable " ++ seqShow x
   decr
@@ -87,9 +87,14 @@ eval e@(IMatch pats x results) = do
   printt $ "Match expression " ++ seqShow e ++ " evaluated to " ++ seqShow ret
   decr
   return ret
+
 eval (ILit (LInt x)) = printt ("Evaluating integer literal " ++ seqShow x) >> return (VInt x)
 eval (ILit LEmptyList) = printt "Evaluation empty list literal []" >> return (VList [])
-
+eval (IIf b e1 e2) = do
+  b' <- eval b
+  eval $ if (\(VBool x) -> x) b'
+    then e1
+    else e2
 
 evalMatch :: [Pattern] -> Value -> [IExpr] -> Eval Value
 evalMatch (p:ps) x (e:es) = do
@@ -131,23 +136,38 @@ partialValue :: [Value] -> Function -> Eval Value
 partialValue vs = return . VFun . Partial vs
 
 apply :: Function -> Value -> Eval Value
-apply f@(Decl [arg] body) v      = printt ("applying| " ++ seqShow f ++ " to aarg " ++ seqShow v) >> withVar arg v (eval body)
-apply f@(Decl _ _) v           = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >> partialValue [v] f
-apply f@(Closure arg body env) v = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >> local (const env) (withVar arg v $ eval body)
-apply f@(Builtin x 1) v          = printt ("applying| " ++ seqShow f ++ " to arg " ++ seqShow v) >> return (evalBuiltin x [v])
-apply f@(Builtin _ _) v        = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >> partialValue [v] f
-apply f@(Ctor name 1) v          = printt ("applying| " ++ seqShow f ++ " to arg " ++ seqShow v) >> return (VAlg name [v])
-apply f@(Ctor _ _) v           = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >> partialValue [v] f
-apply f@(Partial args fn) v | length args + 1 == argCount fn = printt ("applying| " ++ seqShow f ++ " to arg " ++ seqShow v) >> fullApply fn (args ++ [v])
-apply f@(Partial args fn) v      = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >> partialValue (args ++ [v]) fn
+apply f@(Decl [arg] body) v      = printt ("applying| " ++ seqShow f ++ " to aarg " ++ seqShow v) >>
+  withBaseEnv (withVar arg v (eval body))
+apply f@(Decl _ _) v             = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >>
+  partialValue [v] f
+apply f@(Closure arg body env) v = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >>
+  local (const env) (withVar arg v $ eval body)
+apply f@(Builtin x 1) v          = printt ("applying| " ++ seqShow f ++ " to arg " ++ seqShow v) >>
+  return (evalBuiltin x [v])
+apply f@(Builtin _ _) v          = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >>
+  partialValue [v] f
+apply f@(Ctor name 1) v          = printt ("applying| " ++ seqShow f ++ " to arg " ++ seqShow v) >>
+  return (VAlg name [v])
+apply f@(Ctor _ _) v             = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >>
+  partialValue [v] f
+apply f@(Partial args fn) v | length args + 1 == argCount fn = printt ("applying| " ++ seqShow f ++ " to arg " ++ seqShow v) >>
+  fullApply fn (args ++ [v])
+apply f@(Partial args fn) v      = printt ("applying " ++ seqShow f ++ " to arg " ++ seqShow v) >>
+  partialValue (args ++ [v]) fn
 
 fullApply :: Function -> [Value] -> Eval Value
-fullApply f@(Decl args body) vs  = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >> local (Map.fromList (zip args vs) <>) (eval body)
-fullApply f@(Builtin name _) vs  = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >> return (evalBuiltin name vs)
-fullApply f@(Ctor name _) vs  = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >> return (VAlg name vs)
-fullApply f@(Partial args fn) vs | length args + length vs == argCount fn  = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >> fullApply fn (args ++ vs)
-fullApply f@(Partial args fn) vs  = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >> partialValue (args ++ vs) fn
-fullApply f vs  = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >> error "fullApply to closure: this can never happen"
+fullApply f@(Decl args body) vs  = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >>
+  withBaseEnv (local (Map.fromList (zip args vs) <>) (eval body))
+fullApply f@(Builtin name _) vs  = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >>
+  return (evalBuiltin name vs)
+fullApply f@(Ctor name _) vs     = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >>
+  return (VAlg name vs)
+fullApply f@(Partial args fn) vs | length args + length vs == argCount fn  = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >>
+  fullApply fn (args ++ vs)
+fullApply f@(Partial args fn) vs = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >>
+  partialValue (args ++ vs) fn
+fullApply f vs                   = printt ("Fully applying " ++ seqShow f ++ " to args " ++ seqShow vs) >>
+  error "fullApply to closure: this can never happen"
 
 argCount :: Function -> Int
 argCount (Decl args _) = length args

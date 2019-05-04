@@ -1,0 +1,34 @@
+{#
+  This is a library, it cannot be interpreted on its own.
+}#
+
+c :
+@{c}(a -> b) -> [a] -> [b] ::
+contMap f xs c = match xs with
+| [] => c []
+| h:t => f h (\x . contMap f t (\rest . c (x : rest)));
+
+[a] -> Maybe a ::
+safeHead xs c = match xs with
+  | h : _ => c (Just h)
+  | [] => c Nothing;
+
+d :
+@{d}(a -> b -> c) -> [a] -> [b] -> [c] ::
+zipWith f xs ys c = match Pair xs ys with
+| Pair (x:tx) (y:ty) => f x y (\n . zipWith f tx ty (\rest . c (n : rest)))
+| _ => c [];
+
+c :
+[@{c}(a -> b)] -> [a] -> [b] ::
+apply fs xs c = match Pair fs xs with
+| Pair (f:frest) (x:xrest) => f x (\res . apply frest xrest (\l . c (res : l)))
+| _ => c [];
+
+[[a]] -> [a] ::
+contcat xs c = match xs with
+| l:ls => contcat ls (\res . c (l ++ res))
+| [] => c [];
+
+[[[[[[a]]]]]] -> [a] ::
+superFlatten xs c = contcat xs (flip contcat (flip contcat (flip contcat (flip contcat c))));

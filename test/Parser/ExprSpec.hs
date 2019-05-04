@@ -65,6 +65,7 @@ expressionParserTest = describe "Expression parser" $ do
         shouldParseExpr "x:xs`" $ EVar "x" ^:^ EVar "xs"
         shouldParseExpr "x + b : xs" $ (EVar "x" ^+^ EVar "b") ^:^ EVar "xs"
         shouldParseExpr "x * y : concat xs" $ (EVar "x" ^*^ EVar "y") ^:^ (EVar "concat" ^$^ EVar "xs")
+        shouldParseExpr "x : y : z : []" $ EVar "x" ^:^ (EVar "y" ^:^ (EVar "z" ^:^ EListLiteral []))
       it "parses list concatenation" $ do
         shouldParseExpr "xs ++ ys" $ EConcat (EVar "xs") (EVar "ys")
         shouldParseExpr "x : xs ++ ys" $ EConcat (ECons (EVar "x") (EVar "xs")) (EVar "ys")

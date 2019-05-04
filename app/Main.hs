@@ -1,9 +1,9 @@
 module Main (main) where
 
 import Parser.Parser (ParserError, parseProgram, composeASTs)
-import Parser.TypeDefs (fnName, AST(AST), typeDecls, mapFromDeclList)
+import Parser.TypeDefs (fnName, mapFromDeclList, AST(..))
 import TypeSystem.PatternChecker (PatternError, runCoverageCheck, checkPatterns)
-import TypeSystem.TypeDefs
+import TypeSystem.TypeDefs (TypeSystemError, IAST, iTypeDecls)
 import System.Environment (getArgs)
 import Data.Bifunctor (first)
 import Semantics.Builtins (makePrelude)
@@ -14,7 +14,7 @@ import Semantics.TypeDefs
 import Debug.Trace (traceM)
 import System.IO
 import Data.Either (isLeft, isRight)
-import Control.Monad (when, unless)
+import Control.Monad (when, unless, zipWithM)
 import System.Exit (exitFailure)
 import System.Directory
 
@@ -51,11 +51,11 @@ getRight _ = error "getRight called with a Left"
 doInterpret :: Either ProgramError IAST -> IO Value
 doInterpret res = if isRight res then interpretAST (getRight res) else return (VAlg "Error occured, exiting!" [])
 
-doChecks :: String -> String -> String -> Either ProgramError IAST
+doChecks :: [String] -> [String] -> String -> Either ProgramError IAST
 doChecks fname contents preludeContents = do
   prelude <- mapPrelude <$> parseRealProgram preludeFileName preludeContents
-  ast <- parseRealProgram fname contents
-  let full = composeASTs prelude ast
+  ast <- zipWithM parseRealProgram fname contents
+  let full = foldl1 composeASTs (prelude : ast)
   iast <- first PreprocessingError $ preprocess full
   let typeEnv = mapFromDeclList $ iTypeDecls iast
   traceM $ "Full AST is: " ++ show full
@@ -74,19 +74,16 @@ assertFileExists name = do
   exists <- doesFileExist name
   unless exists . printAndExit $ "Cannot find file \"" ++ name ++ "\"."
 
-{- | Parses one file, typechecks it and prints the AST. -}
-oneFileParser :: IO ()
-oneFileParser = do
-  fname:_ <- getArgs
+
+main :: IO ()
+main = do
+  fileNames <- getArgs
   assertFileExists preludeFileName
-  assertFileExists fname
-  contents <- readFile fname
+  mapM_ assertFileExists fileNames
+  contents <- mapM readFile fileNames
   preludeContents <- readFile preludeFileName
-  let res = doChecks fname contents preludeContents
+  let res = doChecks fileNames contents preludeContents
   when (isLeft res) . printAndExit $ showResult res
   v <- doInterpret res
   print v
   hFlush stderr
-
-main :: IO ()
-main = oneFileParser

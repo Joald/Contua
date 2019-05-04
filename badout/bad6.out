@@ -1,2 +1,2 @@
 Type error occured:
-Cannot unify type Int with (Int -> a107) -> a107
+Cannot unify type Int with (Int -> a104) -> a104

@@ -1,2 +1,1 @@
-Type error occured:
-Cannot unify type [a103] with Maybe a104
+Pattern group for expression EVar "xs" is non-exhaustive.

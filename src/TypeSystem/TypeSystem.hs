@@ -350,6 +350,16 @@ inferType (IMatch pats x results) = do
   traceM $ "==inferType IMatch: inferred type " ++ show t2 ++ " for match with " ++ show x
   return (apply finalSubst t2, finalSubst)
 
+inferType (IIf b e1 e2) = do
+  (t1, s1) <- inferType b
+  s2 <- unifyTypes t1 boolType
+  (t2, s3) <- localWithSubst (s2 `compose` s1) $ inferType e1
+  (t3, s4) <- localWithSubst (s3 `compose` s2 `compose` s1) $ inferType e2
+  s5 <- unifyTypes (apply s4 t2) t3
+  return (apply s5 t3, s5 `compose` s4 `compose` s3 `compose` s2 `compose` s1)
+
+
+
 inferPatterns :: [SchemeMap] -> [IExpr] -> TypeCheck (Type, TypeSubst)
 inferPatterns [sc] [e] = local (mapSchemeEnv (sc <>)) $ inferType e
 inferPatterns (sc:scs) (e:es) = do
@@ -361,6 +371,7 @@ inferPatterns _ _ = error "invalid pattern list: this cannot happen"
 
 checkPattern :: Pattern -> Type -> TypeCheck (SchemeMap, TypeSubst)
 checkPattern (PLit LEmptyList) t = do
+  traceM "Checking empty list pattern"
   name <- freshTypeName
   s <- unifyTypes t (TList name)
   return (Map.empty, s)
@@ -368,6 +379,7 @@ checkPattern (PLit (LInt _)) t = (Map.empty, ) <$> unifyTypes t intType
 checkPattern (PVar x) t | x /= "_" = return (Map.singleton x $ ForAll [] t, nullSubst)
 checkPattern (PVar _) _ = return (Map.empty, nullSubst)
 checkPattern p@(PTVariant name args) t = do
+  traceM $ "Checking type pattern " ++ name ++ " against type " ++ show t
   env <- ask
   let ms = Map.lookup name $ schemeDict env
   throwWhenNothing ms $ UnboundVariableError name
@@ -380,11 +392,12 @@ checkPattern p@(PTVariant name args) t = do
   throwWhenMultipleEqual names (show p)
   return (mconcat maps, foldl compose s substs)
 
-checkPattern (PCons x xs) t =
-  do t' <- freshTypeName
-     let tl = TList t'
-     s1 <- unifyTypes tl t
-     (sm1, s2) <- checkPattern x (apply s1 t')
-     let s2' = s2 `compose` s1
-     (sm2, s3) <- checkPattern xs (apply s2' tl)
-     return (sm1 `Map.union` sm2, s3 `compose` s2')
+checkPattern (PCons x xs) t = do
+  traceM $ "Checking cons pattern " ++ show x ++ " : " ++ show xs ++ " against type " ++ show t
+  t' <- freshTypeName
+  let tl = TList t'
+  s1 <- unifyTypes tl t
+  (sm1, s2) <- checkPattern x (apply s1 t')
+  let s2' = s2 `compose` s1
+  (sm2, s3) <- checkPattern xs (apply s2' tl)
+  return (sm1 `Map.union` sm2, s3 `compose` s2')

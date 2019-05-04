@@ -27,6 +27,11 @@ initFns = foldMap declToEnv
 withVar :: Name -> Value -> Eval a -> Eval a
 withVar k v = local (Map.insert k v)
 
+withBaseEnv :: Eval a -> Eval a
+withBaseEnv m = do
+  baseEnv <- lift ask
+  local (const baseEnv) m
+
 preprocessEnv :: Env -> Env
 preprocessEnv = Map.map reduceCtors -- . Map.map evalConstants
 

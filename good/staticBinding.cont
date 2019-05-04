@@ -1,0 +1,12 @@
+x = 1;
+
+y = x;
+
+f z c = c (z + x);
+
+test =
+  let g = \_ . x in
+  let x = 0      in
+  f 0 (\res . res + y + g 20);
+
+main = const test;

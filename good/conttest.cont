@@ -1,17 +1,18 @@
+{#
+  Demonstration of basic contination function usage.
+}#
+
 Int -> Int ::
 fac n c =
   if n == 0
     then c 1
-    else fac (n - 1) (λf . c (n * f));
+    else fac (n - 1) (\f. c (n * f));
 
 Int -> Int ::
 fib n c =
   if n <= 1
     then c 1
     else fib (n - 1) (λres . fib (n - 2) (λres2 . c (res + res2)));
-
-Int -> Int -> Int ::
-sum a b c = c (a + b);
 
 Int -> Int -> Int ::
 max2 a b c = c (if a <= b then b else a);
@@ -22,5 +23,21 @@ max3 x y z =
     then max2 y z
     else max2 x y;
 
-Int ::
-main = max3 1 2 3;
+# Example of throwing an exception.
+Int -> Int -> Int ::
+div x y c =
+  if y == 0
+    then Nothing
+    else safeDiv x y c;
+
+# safe means it assumes it's safe and won't be called with a zero value
+Int -> Int -> Int ::
+safeDiv x y c =
+  if x < y
+    then c 0
+    else safeDiv (x - y) y (\rest. c (rest + 1));
+
+# if we replace 'fa' by 0 we get Nothing instead of Just 3628800
+res = fib 10 (\fi. fac 10 (\fa. div fi fa (\d. max3 fi fa (1000 * d) Just)));
+
+main = const res;

@@ -138,104 +138,141 @@
 	The language requires the programmer to specify the type of every top-level function declaration, however full type inference is still performed and the result is compared with the modified type of the function.
 	The language supports recursive polymorphic algebraic types and generic lists, both supporting 
 	unbounded pattern depth. The language does not allow for runtime errors, as there is no division operator and the type system will reject any program with non-exhaustive patterns in a match expression. The need for error checking is alleviated by the programmer being able to ignore the passed continuation and instead return a new continuation.
+	Finally, there is a \texttt{@\{t1\}(t2)} syntax for adding continuation modification to function types, the return type of \texttt{t2} (let's call it \texttt{tr}) is thus replaced by \texttt{(tr~->~t1)~->~t1.}
 	\section{Sample programs}
 	\begin{lstlisting}[escapeinside={(*}{*)}]
-	# prelude.cont
-	# this file is loaded before all the input files by the interpreter and contains basic
-	# definitions of standard library functions and types.
-	
-	type Bool = True | False;
-	type Maybe a = Just a | Nothing;
-	type Either e a = Left e | Right a;
-	
-	a -> a ::
-	id x = x;
-	
-	Int -> Int ::
-	succ x = x + 1;
-	
-	(a -> b) -> (b -> c) -> a -> c ::
-	comp f g x = g (f x);
-	
-	(a -> b) -> [a] -> [b] ::
-	map f xs = match xs with
-	| [] => []
-	| h:t => f h : map f t;
-	
-	(a -> (b -> c) -> c) -> [a] -> ([b] -> c) -> c ::
-	contMap f xs c = match xs with
-	| [] => c []
-	| h:t => f h (\x . contMap f t (\rest . c (x : rest)));
+# prelude.cont
+# this file is loaded before all the input files by the interpreter and contains basic
+# definitions of standard library functions and types.
+# this is the only file allowed to contain non-continuation-style top-level definitions.
+
+type Bool = True | False;
+type Maybe a = Just a | Nothing;
+type Either e a = Left e | Right a;
+type Pair a b = Pair a b;
+
+
+a -> a ::
+id x = x;
+
+flip f x y = f y x;
+
+Int -> Int ::
+succ x = x + 1;
+
+(b -> c) -> (a -> b) -> a -> c ::
+comp f g x = f (g x);
+
+(a -> b) -> [a] -> [b] ::
+map f xs = match xs with
+| [] => []
+| h:t => f h : map f t;
+
+
+a -> b -> a ::
+const x _ = x;
+
+(a -> b) -> a -> b -> a -> b ::
+mapsTo f x y a =
+if a == x
+then y
+else f a;
+
+(a -> b) -> [a] -> [b] -> a -> b ::
+multiMapsTo f xs ys = match Pair xs ys with
+| Pair [] _ => f
+| Pair _ [] => f
+| Pair (x:xs) (y:ys) => multiMapsTo (mapsTo f x y) xs ys;
+
+type Return a = Return a;
+
+unReturn x = match x with | Return y => y;
+
+
 	\end{lstlisting}
 	\begin{lstlisting}[escapeinside={(*}{*)}]
-	Int :
-	Int -> Int ::
-	fac n c =
-	  if n == 0
-	    then c 1
-		else fac (n - 1) ((*$\lambda$*)f. c (n * f));
-	
-	Int :
-	Int -> Int ::
-	fib n c =
-	  if n <= 1
-		then c 1
-		else fib (n - 1) ((*$\lambda$*)res. fib (n - 2) ((*$\lambda$*)res2. c (res + res2)));
-	
-	Int :
-	Int -> Int -> Int ::
-	max2 a b c = c (if a <= b then b else a);
-	
-	Int :
-	Int -> Int -> Int -> Int ::
-	max3 x y z =
-	  if x <= z
-		then max2 y z
-		else max2 x y;
-	
-	# Example of throwing an exception.
-	Maybe Int :
-	Int -> Int -> Int ::
-	div x y c = 
-	  if y == 0 
-	    then Nothing
-	    else safeDiv x y c;
- 
- 	Int -> Int -> Int ::
- 	safeDiv x y c = 
- 	  if x < y
- 	    then c 0
- 	    else safeDiv (x - y) y ((*$\lambda$*)rest. c (rest + 1));
- 	  
-	(Int -> Int) -> Int ::
-	main = (*$\lambda$*)c. fib 10 ((*$\lambda$*)fi. fac 10 ((*$\lambda$*)fa. safeDiv fi fa ((*$\lambda$*)d. max3 fi fa (100 * d) c)));
+{#
+	Demonstration of basic contination function usage.
+}#
+Int :
+Int -> Int ::
+fac n c =
+if n == 0
+  then c 1
+  else fac (n - 1) ((*$\lambda$*)f. c (n * f));
+
+Int :
+Int -> Int ::
+fib n c =
+if n <= 1
+  then c 1
+  else fib (n - 1) ((*$\lambda$*)res. fib (n - 2) ((*$\lambda$*)res2. c (res + res2)));
+
+Int :
+Int -> Int -> Int ::
+max2 a b c = c (if a <= b then b else a);
+
+Int :
+Int -> Int -> Int -> Int ::
+max3 x y z =
+if x <= z
+  then max2 y z
+  else max2 x y;
+
+# Example of throwing an exception.
+Maybe Int :
+Int -> Int -> Int ::
+div x y c = 
+  if y == 0 
+    then Nothing
+    else safeDiv x y c;
+
+Int -> Int -> Int ::
+safeDiv x y c = 
+ if x < y
+  then c 0
+  else safeDiv (x - y) y ((*$\lambda$*)rest. c (rest + 1));
+
+# if we replace 'fa' by 0 we get Nothing instead of Just 3628800 
+res = fib 10 (\fi. fac 10 (\fa. div fi fa (\d. max3 fi fa (1000 * d) Just)));
+
+main = const res;
 	\end{lstlisting}
 	\begin{lstlisting}[escapeinside={(*}{*)}]
-	type Tree a = Empty | Node a (Tree a) (Tree a);
+type Tree a = Empty | Node a (Tree a) (Tree a);
 
-    mapTree f t c = match t with
-      | Empty => c Empty
-      | Node x t1 t2 => mapTree f t1 ((*$\lambda$*)l . mapTree f t2 ((*$\lambda$*)r . Node (f x) l r));
+mapTree f t c = match t with
+  | Empty => c Empty
+  | Node x t1 t2 => mapTree f t1 ((*$\lambda$*)l . mapTree f t2 ((*$\lambda$*)r . Node (f x) l r));
 
-    testTree = Node 1 (Node 2 Empty Empty) (Node 3 Empty Empty);
+testTree = Node 1 (Node 2 Empty Empty) (Node 3 Empty Empty);
 
-    main = mapTree succ testTree id;
+main = mapTree succ testTree id;
 	\end{lstlisting}
 	\begin{lstlisting}[escapeinside={(*}{*)}]
-	type TwoLists a b = TwoLists [a] [b];
-	
-	[a] -> Maybe a ::
-	safeHead xs c = match xs with
-	| h : _ => c (Just h)
-	| [] => c Nothing;
-	
-	(a -> b -> c) -> [a] -> [b] -> Maybe c ::
-	joinSafeHeads f xs ys c = match TwoLists xs ys with
-	| TwoLists (h1:_) (h2:_) => comp c Just (f h1 h2)
-	| TwoLists _ _ => c Nothing;
-	
-	Maybe Int ::
-	main = safeHead [2, 1, 3, 7] id;
+
+c :
+@{c}(a -> b) -> [a] -> [b] ::
+contMap f xs c = match xs with
+| [] => c []
+| h:t => f h (\x . contMap f t (\rest . c (x : rest)));
+
+d :
+@{d}(a -> b -> c) -> [a] -> [b] -> Maybe c ::
+joinSafeHeads f xs ys c = match Pair xs ys with
+| Pair (h1:_) (h2:_) => f h1 h2 (\x.c (Just x))
+| Pair _ _ => c Nothing;
+
+plusThree x c = c (x + 3);
+
+add x y c = c (x + y);
+
+Maybe Int ::
+main = \c .
+  contMap plusThree [3, 1, 3, 7] \l .
+  joinSafeHeads add l (4 : 2 : 12 : []) c;
+
+
 	\end{lstlisting}
 	\section{Points}
 	I plan to implement all the features mentioned in the task description required for 35 points except

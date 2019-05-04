@@ -87,7 +87,7 @@ exprOperatorTable =
   , [ binary "*" EMul ]
   , [ InfixL $ EAdd <$ op "+"
     , binary "-" ESub ]
-  , [ binary ":" ECons ]
+  , [ binaryR ":" ECons ]
   , [ InfixL $ EConcat <$ op "++" ]
   , [ binary "==" EEq ]
   , [ binary "<=" ELeq
